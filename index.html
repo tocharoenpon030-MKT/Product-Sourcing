@@ -188,6 +188,21 @@ tbody tr.row-new td { background: rgba(224,123,30,.05); }
 .cmp-exp   { color: var(--red); font-weight: 700; }
 .cmp-eq    { color: var(--muted); }
 
+.verdict-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-top: 1.5px solid var(--border);
+  background: var(--surface2);
+}
+.verdict-badge {
+  font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.verdict-badge.good { background: rgba(22,163,74,.12); color: var(--green); }
+.verdict-badge.warn { background: rgba(217,119,6,.12); color: var(--yellow); }
+.verdict-badge.bad  { background: rgba(220,38,38,.10); color: var(--red); }
+.verdict-detail { font-size: 12px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.verdict-detail b { color: var(--text); font-family: var(--mono); }
+
 .data-banner {
   background:linear-gradient(90deg,#dcfce7,#bbf7d0); border-bottom:2px solid #86efac;
   padding:8px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -325,11 +340,13 @@ function buildGroups(items) {
   const order = [];
   const map = {};
   items.forEach(it => {
-    if (!map[it.type1]) { map[it.type1] = { name: it.type1, groupProfit: 0, pairs: [] }; order.push(it.type1); }
+    if (!map[it.type1]) { map[it.type1] = { name: it.type1, groupProfit: null, pairs: [] }; order.push(it.type1); }
     const g = map[it.type1];
-    if (it.groupProfit !== null) g.groupProfit = it.groupProfit;
+    // groupProfit (col F) is only populated on the first row of each ประเภท1 block.
+    // Only set it once, from the first row that actually carries a value — never let
+    // a later blank/merged row overwrite it back to null.
+    if (g.groupProfit === null && it.groupProfit !== null) g.groupProfit = it.groupProfit;
   });
-  // pair consecutive ขายอยู่/ใหม่ rows that share description root (or just sequential pairing)
   order.forEach(name => {
     const g = map[name];
     const groupItems = items.filter(it => it.type1 === name);
@@ -408,10 +425,12 @@ function buildGroupPie(g) {
   // slices = each item's itemProfit (G), remainder = groupProfit(F) - sum(items)
   const itemsWithProfit = [];
   g.pairs.forEach(p => {
-    if (p.old && p.old.itemProfit) itemsWithProfit.push({ name: p.old.desc, value: p.old.itemProfit });
+    if (p.old && p.old.itemProfit !== null && p.old.itemProfit !== undefined) {
+      itemsWithProfit.push({ name: p.old.desc, value: p.old.itemProfit });
+    }
   });
   const sumItems = itemsWithProfit.reduce((s,x)=>s+x.value,0);
-  const total = g.groupProfit || sumItems;
+  const total = (g.groupProfit !== null && g.groupProfit !== undefined) ? g.groupProfit : sumItems;
   const remainder = Math.max(0, total - sumItems);
 
   const slices = itemsWithProfit.map((it,i) => ({ ...it, color: PIE_COLORS[i % PIE_COLORS.length] }));
@@ -441,15 +460,15 @@ function buildGroupPie(g) {
 // ── PAGE 1: ภาพรวม ──
 function buildPage1() {
   if (!groups) return '';
-  const totalGroupProfit = groups.reduce((s,g)=>s+(g.groupProfit||0),0);
   const totalItems = allItems.length;
+  const totalQty2568 = allItems.reduce((s,it)=>s+(it.qty2568||0),0);
   const totalQty2569 = allItems.reduce((s,it)=>s+(it.qty2569||0),0);
 
   const statCards = `
-    <div class="stat-card hl"><div class="label">กำไรรวมทุกกลุ่ม (ปี 2568)</div><div class="value">${fmtMoney(totalGroupProfit,0)}</div><div class="sub">บาท</div></div>
     <div class="stat-card"><div class="label">จำนวนกลุ่มสินค้า</div><div class="value">${groups.length}</div><div class="sub">กลุ่ม</div></div>
     <div class="stat-card"><div class="label">จำนวนรายการทั้งหมด</div><div class="value">${totalItems}</div><div class="sub">รายการ (ขายอยู่+ใหม่)</div></div>
-    <div class="stat-card"><div class="label">ยอดขายรวม ปี 2569</div><div class="value">${fmt(totalQty2569,0)}</div><div class="sub">หน่วย (ม.ค.-พ.ค.)</div></div>
+    <div class="stat-card hl"><div class="label">จำนวนขาย 2568</div><div class="value">${fmt(totalQty2568,0)}</div><div class="sub">หน่วย (ม.ค.-ธ.ค.)</div></div>
+    <div class="stat-card hl"><div class="label">จำนวนขาย 2569</div><div class="value">${fmt(totalQty2569,0)}</div><div class="sub">หน่วย (ม.ค.-พ.ค.)</div></div>
   `;
 
   const groupBlocks = groups.map(g => {
@@ -457,7 +476,7 @@ function buildPage1() {
     return `<div class="group-block">
       <div class="group-head">
         <div class="group-name">${g.name}</div>
-        <div class="group-total">กำไรรวมกลุ่ม: ${fmtMoney(g.groupProfit,0)} บาท</div>
+        <div class="group-total">กำไรกลุ่ม (ปี 2568): ${fmtMoney(g.groupProfit,0)} บาท</div>
       </div>
       <div class="note">สัดส่วนกำไรเฉพาะของแต่ละรายการ (ขายอยู่) เทียบกับกำไรรวมทั้งกลุ่ม — มี ${pairCount} คู่เปรียบเทียบ</div>
       ${buildGroupPie(g)}
@@ -480,16 +499,52 @@ function summaryTag(summary) {
   return `<span class="cmp-eq">${summary||'–'}</span>`;
 }
 
+// คุ้มไหม: เทียบกำไรต่อชิ้น (M) ใหม่ vs ขายอยู่ + เทียบจำนวนช่อง "ถูก" (P,V,AB) ใหม่ vs ขายอยู่
+function buildVerdict(old, neu) {
+  if (!old || !neu) return null;
+
+  const profitOld = old.purchaseProfitPerUnit;
+  const profitNew = neu.purchaseProfitPerUnit;
+  const profitDelta = (profitOld !== null && profitNew !== null) ? (profitNew - profitOld) : null;
+  const profitBetter = profitDelta !== null && profitDelta > 0;
+
+  const countCheap = (it) => [it.purchaseSummary, it.ivSummary, it.ikSummary].filter(s => s === 'ถูก').length;
+  const cheapOld = countCheap(old);
+  const cheapNew = countCheap(neu);
+  const priceBetter = cheapNew >= cheapOld;
+
+  let cls, label;
+  if (profitBetter && priceBetter) { cls = 'good'; label = '✅ คุ้มค่า ควรพิจารณานำเข้า'; }
+  else if (profitBetter && !priceBetter) { cls = 'warn'; label = '⚠️ กำไรดีขึ้น แต่แพงกว่าราคาตลาดเดิม'; }
+  else if (!profitBetter && priceBetter) { cls = 'warn'; label = '⚠️ ราคาสู้ตลาดได้ดีขึ้น แต่กำไรลดลง'; }
+  else { cls = 'bad'; label = '❌ ไม่คุ้ม'; }
+
+  const profitTxt = profitDelta === null ? 'ไม่มีข้อมูล' : `${profitDelta>0?'+':''}${fmtMoney(profitDelta,2)} บาท/ชิ้น`;
+
+  return `<div class="verdict-bar">
+    <span class="verdict-badge ${cls}">${label}</span>
+    <div class="verdict-detail">
+      <span>กำไร/ชิ้นเปลี่ยน: <b>${profitTxt}</b></span>
+      <span>ถูกกว่าคู่แข่ง: ขายอยู่ <b>${cheapOld}/3</b> ช่อง · ใหม่ <b>${cheapNew}/3</b> ช่อง</span>
+    </div>
+  </div>`;
+}
+
 function buildCompareCard(pair, idx) {
   const old = pair.old, neu = pair.new;
   const title = (old && old.desc) || (neu && neu.desc) || `รายการที่ ${idx+1}`;
 
   function colHtml(it, tagClass, tagLabel) {
     if (!it) return `<div class="compare-col"><div class="compare-tag ${tagClass}">${tagLabel}</div><div style="color:var(--muted);font-size:13px">ไม่มีข้อมูล</div></div>`;
+    const qtyLines = tagClass === 'old' ? `
+      <div class="kv-line"><span class="kv-label">จำนวนขาย 2568</span><span class="kv-val">${fmt(it.qty2568,0)}</span></div>
+      <div class="kv-line"><span class="kv-label">จำนวนขาย 2569</span><span class="kv-val">${fmt(it.qty2569,0)}</span></div>
+    ` : '';
     return `<div class="compare-col ${tagClass==='old'?'old':''}">
       <div class="compare-tag ${tagClass}">${tagLabel}</div>
       <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
       <div class="compare-desc">${it.desc}</div>
+      ${qtyLines}
       <div class="kv-line"><span class="kv-label">ราคาจัดซื้อ</span><span class="kv-val">${fmtMoney(it.purchasePrice)}</span></div>
       <div class="kv-line"><span class="kv-label">% กำไรจัดซื้อ</span><span class="kv-val">${fmtPct(it.purchaseProfitPct)}</span></div>
       <div class="kv-line"><span class="kv-label">กำไร/ชิ้น (จัดซื้อ)</span><span class="kv-val">${fmtMoney(it.purchaseProfitPerUnit)}</span></div>
@@ -503,12 +558,15 @@ function buildCompareCard(pair, idx) {
     </div>`;
   }
 
+  const verdict = buildVerdict(old, neu);
+
   return `<div class="compare-card">
     <div class="compare-card-head">${title}</div>
     <div class="compare-row">
       ${colHtml(old,'old','ขายอยู่')}
       ${colHtml(neu,'new','สินค้าใหม่')}
     </div>
+    ${verdict || ''}
   </div>`;
 }
 
@@ -586,7 +644,7 @@ function buildPage3() {
   <div class="tbl-wrap"><table>
     <thead><tr>
       <th class="sticky-col">ประเภท1</th><th>ประเภท2</th><th>ยี่ห้อ</th><th>รหัสสินค้า</th><th>รายละเอียด</th>
-      <th>ขาย68</th><th>ขาย69</th><th>ต้นทุน</th>
+      <th>จำนวนขาย 2568</th><th>จำนวนขาย 2569</th><th>ต้นทุน</th>
       <th>ราคาจัดซื้อ</th><th>%กำไรจัดซื้อ</th><th>กำไร/ชิ้น</th><th>ราคาคู่แข่ง</th><th>ส่วนต่าง</th><th>สรุป</th>
       <th>ขาย IV</th><th>%กำไร IV</th><th>กำไร/ชิ้น</th><th>ราคาคู่แข่ง</th><th>ส่วนต่าง</th><th>สรุป</th>
       <th>ขาย IK-IV</th><th>%กำไร IK</th><th>กำไร/ชิ้น</th><th>ราคาคู่แข่ง</th><th>ส่วนต่าง</th><th>สรุป</th>
