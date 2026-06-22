@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>แดชบอร์ดเปรียบเทียบราคาสินค้า</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222536;
+    --border: #2e3148;
+    --accent: #5b6af0;
+    --accent2: #00c896;
+    --danger: #f05b5b;
+    --warn: #f0a85b;
+    --text: #e8eaf6;
+    --muted: #7b7f9e;
+    --win: #00c896;
+    --lose: #f05b5b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  header h1 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+
+  header h1 span {
+    color: var(--accent);
+  }
+
+  #status {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+  }
+  .dot.live { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  .dot.error { background: var(--danger); }
+
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 24px;
+  }
+
+  /* KPI row */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+
+  .kpi-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .kpi-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .kpi-sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* Tab */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    border-radius: 8px 8px 0 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    transition: all 0.15s;
+    background: none;
+    font-family: 'Sarabun', sans-serif;
+  }
+
+  .tab.active {
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--border);
+    border-bottom-color: var(--surface);
+    margin-bottom: -1px;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Section title */
+  .section-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 14px;
+    margin-top: 24px;
+    padding-left: 2px;
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
+  }
+
+  /* Table */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+  }
+
+  thead th {
+    background: var(--surface2);
+    padding: 11px 14px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+
+  td {
+    padding: 12px 14px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  td.num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    text-align: right;
+  }
+
+  .brand-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .brand-sell {
+    background: rgba(91,106,240,0.18);
+    color: #8a97ff;
+    border: 1px solid rgba(91,106,240,0.35);
+  }
+
+  .brand-consider {
+    background: rgba(240,168,91,0.15);
+    color: #f0b96b;
+    border: 1px solid rgba(240,168,91,0.3);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .badge-win {
+    background: rgba(0,200,150,0.15);
+    color: var(--win);
+    border: 1px solid rgba(0,200,150,0.3);
+  }
+
+  .badge-lose {
+    background: rgba(240,91,91,0.15);
+    color: var(--lose);
+    border: 1px solid rgba(240,91,91,0.3);
+  }
+
+  .profit-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+  }
+
+  .profit-bar {
+    height: 6px;
+    border-radius: 3px;
+    flex: 1;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .profit-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent2);
+  }
+
+  .profit-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    min-width: 36px;
+    text-align: right;
+    color: var(--accent2);
+  }
+
+  /* Loading */
+  #loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 0;
+    gap: 16px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #error-msg {
+    display: none;
+    background: rgba(240,91,91,0.1);
+    border: 1px solid rgba(240,91,91,0.3);
+    border-radius: 10px;
+    padding: 20px 24px;
+    color: var(--danger);
+    font-size: 0.88rem;
+    margin-bottom: 20px;
+  }
+
+  .refresh-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-family: 'Sarabun', sans-serif;
+    cursor: pointer;
+    font-weight: 600;
+    transition: opacity 0.15s;
+  }
+  .refresh-btn:hover { opacity: 0.85; }
+
+  .updated {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-bottom: 16px;
+  }
+
+  /* Step prices */
+  .step-prices {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .step {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    text-align: center;
+  }
+
+  .step-label {
+    font-size: 0.62rem;
+    color: var(--muted);
+    display: block;
+  }
+
+  .arrow { color: var(--border); font-size: 0.7rem; }
+
+  /* Market compare */
+  .market-compare {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+  }
+
+  .market-price {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .diff-positive { color: var(--win); }
+  .diff-negative { color: var(--lose); }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    header { padding: 14px 16px; }
+    main { padding: 16px 12px; }
+    .kpi-value { font-size: 1.3rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📊 แดชบอร์ด<span>เปรียบเทียบราคา</span></h1>
+  <div id="status">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">กำลังโหลด...</span>
+    <button class="refresh-btn" onclick="loadData()">↻ รีเฟรช</button>
+  </div>
+</header>
+
+<main>
+  <div id="error-msg"></div>
+  <div id="loading">
+    <div class="spinner"></div>
+    <span>กำลังดึงข้อมูลจาก Google Sheets...</span>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <div class="updated" id="updated-time"></div>
+
+    <!-- KPI -->
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('gypsum')">🏠 ยิปซั่ม</button>
+      <button class="tab" onclick="switchTab('screw')">🔩 สกรู</button>
+    </div>
+
+    <!-- Gypsum Tab -->
+    <div id="tab-gypsum" class="tab-content active">
+      <div class="section-title">สินค้าที่ขายอยู่ (คนอฟ) vs สินค้าพิจารณา (มังกร)</div>
+      <div class="table-wrap">
+        <table id="tbl-gypsum"></table>
+      </div>
+    </div>
+
+    <!-- Screw Tab -->
+    <div id="tab-screw" class="tab-content">
+      <div class="section-title">สินค้าที่ขายอยู่ (โปรฟาส) vs สินค้าพิจารณา (มากุสุ)</div>
+      <div class="table-wrap">
+        <table id="tbl-screw"></table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const SHEET_ID = '1tBrWrp4Hz8GOUQzq4UZ-NXFPscajlsahs2fTi1CPa6o';
+const SHEET_NAME = 'สรุป';
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n');
+  return lines.map(line => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') { inQ = !inQ; }
+      else if (line[i] === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else cur += line[i];
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+function n(v) {
+  const num = parseFloat(v);
+  return isNaN(num) ? null : num;
+}
+
+function fmt(v, dec=2) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return v.toLocaleString('th-TH', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function pct(v) {
+  if (v === null) return '—';
+  return (v * 100).toFixed(1) + '%';
+}
+
+function buildBrandPill(brand) {
+  const selling = ['คนอฟ','โปรฟาส'];
+  const cls = selling.includes(brand) ? 'brand-sell' : 'brand-consider';
+  const label = selling.includes(brand) ? '● ขายอยู่' : '◎ พิจารณา';
+  return `<span class="brand-pill ${cls}">${brand} <small>${label}</small></span>`;
+}
+
+function buildMarketBadge(salePrice, marketPrice) {
+  if (!salePrice || !marketPrice) return '—';
+  const diff = salePrice - marketPrice;
+  const pctDiff = diff / marketPrice;
+  if (diff < 0) {
+    return `<span class="badge badge-win">✓ ถูกกว่าตลาด ${pct(Math.abs(pctDiff))}</span>`;
+  } else {
+    return `<span class="badge badge-lose">✗ แพงกว่าตลาด ${pct(Math.abs(pctDiff))}</span>`;
+  }
+}
+
+function buildProfitBar(profit, maxProfit) {
+  if (!profit) return '—';
+  const pct = Math.min(100, (profit / maxProfit) * 100);
+  return `
+    <div class="profit-bar-wrap">
+      <div class="profit-bar"><div class="profit-bar-fill" style="width:${pct}%"></div></div>
+      <span class="profit-val">${fmt(profit)}</span>
+    </div>`;
+}
+
+function buildStepPrices(p1, p2, p3) {
+  return `
+    <div class="step-prices">
+      <div class="step"><span class="step-label">จัดซื้อ</span>${fmt(p1)}</div>
+      <span class="arrow">›</span>
+      <div class="step"><span class="step-label">IV</span>${fmt(p2)}</div>
+      <span class="arrow">›</span>
+      <div class="step"><span class="step-label">IK-IV</span>${fmt(p3)}</div>
+    </div>`;
+}
+
+function buildTable(el, rows, isGypsum) {
+  const maxSell68 = Math.max(...rows.map(r => n(r.sell68) || 0));
+  const maxSell69 = Math.max(...rows.map(r => n(r.sell69) || 0));
+
+  el.innerHTML = `
+    <thead>
+      <tr>
+        <th>ยี่ห้อ</th>
+        <th>รายละเอียด</th>
+        <th style="text-align:right">ต้นทุน</th>
+        <th>ราคาขาย 3 สเต็ป</th>
+        <th style="text-align:right">ราคาตลาด</th>
+        <th>สู้ตลาด?</th>
+        <th>กำไร/ชิ้น (IK-IV)</th>
+        <th style="text-align:right">ขาย 2568</th>
+        <th style="text-align:right">ขาย 2569</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(r => {
+        const cost = n(r.cost);
+        const p1 = n(r.price1);   // จัดซื้อ
+        const p2 = n(r.price2);   // IV
+        const p3 = n(r.price3);   // IK-IV
+        const market = n(r.market);
+        const profit = p3 !== null && cost !== null ? p3 - cost : null;
+        const sell68 = n(r.sell68);
+        const sell69 = n(r.sell69);
+
+        return `<tr>
+          <td>${buildBrandPill(r.brand)}</td>
+          <td style="white-space:normal;max-width:200px;font-size:0.81rem">${r.name}</td>
+          <td class="num">${fmt(cost)}</td>
+          <td>${buildStepPrices(p1, p2, p3)}</td>
+          <td class="num market-price">${fmt(market)}</td>
+          <td>${buildMarketBadge(p3, market)}</td>
+          <td>${buildProfitBar(profit, 50)}</td>
+          <td class="num">${sell68 ? sell68.toLocaleString('th-TH') : '—'}</td>
+          <td class="num">${sell69 ? sell69.toLocaleString('th-TH') : '—'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>`;
+}
+
+async function loadData() {
+  const dot = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const errEl = document.getElementById('error-msg');
+  const loading = document.getElementById('loading');
+  const dash = document.getElementById('dashboard');
+
+  dot.className = 'dot';
+  statusText.textContent = 'กำลังโหลด...';
+  errEl.style.display = 'none';
+  loading.style.display = 'flex';
+  dash.style.display = 'none';
+
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const rows = parseCSV(text);
+
+    // Parse rows — structure from the sheet:
+    // col0=ลำดับ, col1=ยี่ห้อ, col2=รหัส, col3=รายละเอียด
+    // col4=กำไรกลุ่ม2568, col5=กำไรสินค้า2568, col6=ขาย2568, col7=ขาย2569
+    // col8=ต้นทุน, col9=ราคาจัดซื้อ, col10=กำไรจัดซื้อ%, col11=กำไร/ชิ้น
+    // col12=ราคาตลาด22/6, col13=ส่วนต่าง, col14=สรุป
+    // col15=ขายIV, col16=กำไรIV%, col17=กำไร/ชิ้นIV
+    // col18=ราคาตลาด22/6(IV), col19=ส่วนต่าง, col20=สรุปIV
+    // col21=ขายIK-IV, col22=กำไรIK-IV%, col23=กำไร/ชิ้น
+    // col24=ราคาตลาด22/6(IK-IV), col25=ส่วนต่าง, col26=สรุป
+
+    const gypsum = [], screw = [];
+    let gypsumDone = false;
+    let gypsumGroupProfit = null, screwGroupProfit = null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const seq = r[0]?.trim();
+      const brand = r[1]?.trim();
+      const name = r[3]?.trim();
+
+      if (!seq || !brand || !name) continue;
+      if (seq === 'ลำดับเทียบ') { gypsumDone = true; continue; }
+
+      const obj = {
+        seq, brand, name,
+        groupProfit: r[4], saleProfit: r[5],
+        sell68: r[6], sell69: r[7],
+        cost: r[8],
+        price1: r[9],   // จัดซื้อ
+        price2: r[15],  // IV
+        price3: r[21],  // IK-IV
+        market: r[24]   // ราคาตลาด IK-IV
+      };
+
+      if (!gypsumDone) gypsum.push(obj);
+      else screw.push(obj);
+    }
+
+    // KPI
+    const totalSell68 = [...gypsum, ...screw].reduce((s, r) => s + (n(r.sell68) || 0), 0);
+    const totalSell69 = [...gypsum, ...screw].reduce((s, r) => s + (n(r.sell69) || 0), 0);
+    const gypsumGroupP = n(gypsum[0]?.groupProfit) || 0;
+    const screwGroupP = n(screw[0]?.groupProfit) || 0;
+
+    document.getElementById('kpi-row').innerHTML = `
+      <div class="kpi">
+        <div class="kpi-label">กำไรกลุ่มยิปซั่ม (2568)</div>
+        <div class="kpi-value">${(gypsumGroupP/1000).toFixed(0)}K</div>
+        <div class="kpi-sub">บาท ทั้งกลุ่ม</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">กำไรกลุ่มสกรู (2568)</div>
+        <div class="kpi-value">${(screwGroupP/1000).toFixed(0)}K</div>
+        <div class="kpi-sub">บาท ทั้งกลุ่ม</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">ยอดขายรวม 2568</div>
+        <div class="kpi-value">${totalSell68.toLocaleString('th-TH')}</div>
+        <div class="kpi-sub">ชิ้น/แผ่น</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">ยอดขายรวม 2569 (ม.ค.–พ.ค.)</div>
+        <div class="kpi-value">${totalSell69.toLocaleString('th-TH')}</div>
+        <div class="kpi-sub">ชิ้น/แผ่น</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">สินค้าในระบบ</div>
+        <div class="kpi-value">${gypsum.length + screw.length}</div>
+        <div class="kpi-sub">รายการ (${gypsum.length} ยิปซั่ม, ${screw.length} สกรู)</div>
+      </div>`;
+
+    buildTable(document.getElementById('tbl-gypsum'), gypsum, true);
+    buildTable(document.getElementById('tbl-screw'), screw, false);
+
+    loading.style.display = 'none';
+    dash.style.display = 'block';
+    dot.className = 'dot live';
+    statusText.textContent = 'เชื่อมต่อแล้ว';
+    document.getElementById('updated-time').textContent =
+      'อัปเดตล่าสุด: ' + new Date().toLocaleString('th-TH');
+
+  } catch (err) {
+    loading.style.display = 'none';
+    dot.className = 'dot error';
+    statusText.textContent = 'โหลดไม่สำเร็จ';
+    errEl.style.display = 'block';
+    errEl.innerHTML = `⚠️ โหลดข้อมูลไม่ได้: ${err.message}<br><small>ตรวจสอบว่า Google Sheet แชร์เป็น Public แล้วหรือยัง</small>`;
+  }
+}
+
+loadData();
+// Auto-refresh ทุก 5 นาที
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
