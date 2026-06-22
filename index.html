@@ -503,39 +503,55 @@ function buildPage1() {
 }
 
 // ── PAGE 2: เทียบรายละเอียด (cards old vs new) ──
-function summaryTag(summary) {
-  if (summary === 'ถูก') return `<span class="cmp-cheap">ถูกกว่าคู่แข่ง</span>`;
-  if (summary === 'แพง') return `<span class="cmp-exp">แพงกว่าคู่แข่ง</span>`;
+function summaryTag(summary, diffPct) {
+  const pctTxt = (diffPct === null || diffPct === undefined) ? '' : ` ${Math.abs(diffPct*100).toFixed(0)}%`;
+  if (summary === 'ถูก') return `<span class="cmp-cheap">ถูกกว่าคู่แข่ง${pctTxt}</span>`;
+  if (summary === 'แพง') return `<span class="cmp-exp">แพงกว่าคู่แข่ง${pctTxt}</span>`;
   return `<span class="cmp-eq">${summary||'–'}</span>`;
 }
 
-// คุ้มไหม: เทียบกำไรต่อชิ้น (M) ใหม่ vs ขายอยู่ + เทียบจำนวนช่อง "ถูก" (P,V,AB) ใหม่ vs ขายอยู่
+// คุ้มไหม: เทียบกำไรต่อชิ้นเฉลี่ย (M เฉลี่ย 3 สเต็ป) ใหม่ vs ขายอยู่
+// + เทียบ %ส่วนต่างราคาตลาดเฉลี่ย (O,U,AA เฉลี่ย 3 สเต็ป) ใหม่ vs ขายอยู่
+function avgProfitPerUnit(it) {
+  const vals = [it.purchaseProfitPerUnit, it.ivProfitPerUnit, it.ikProfitPerUnit].filter(v => v !== null && v !== undefined);
+  if (!vals.length) return null;
+  return vals.reduce((a,b)=>a+b,0) / vals.length;
+}
+function avgDiffPct(it) {
+  const vals = [it.purchaseDiff, it.ivDiff, it.ikDiff].filter(v => v !== null && v !== undefined);
+  if (!vals.length) return null;
+  return vals.reduce((a,b)=>a+b,0) / vals.length;
+}
+
 function buildVerdict(old, neu) {
   if (!old || !neu) return null;
 
-  const profitOld = old.purchaseProfitPerUnit;
-  const profitNew = neu.purchaseProfitPerUnit;
-  const profitDelta = (profitOld !== null && profitNew !== null) ? (profitNew - profitOld) : null;
-  const profitBetter = profitDelta !== null && profitDelta > 0;
+  const profitOldAvg = avgProfitPerUnit(old);
+  const profitNewAvg = avgProfitPerUnit(neu);
+  const profitDelta = (profitOldAvg !== null && profitNewAvg !== null) ? (profitNewAvg - profitOldAvg) : null;
+  const profitUp = profitDelta !== null && profitDelta > 0;
+  const profitFlatOrDown = profitDelta !== null && profitDelta <= 0;
 
-  const countCheap = (it) => [it.purchaseSummary, it.ivSummary, it.ikSummary].filter(s => s === 'ถูก').length;
-  const cheapOld = countCheap(old);
-  const cheapNew = countCheap(neu);
-  const priceBetter = cheapNew >= cheapOld;
+  // diff% : ค่ายิ่งน้อย (ติดลบมาก) = ถูกกว่าตลาดมาก = ดี. ค่ายิ่งมาก (บวกมาก) = แพงกว่าตลาดมาก = แย่
+  const diffOldAvg = avgDiffPct(old);
+  const diffNewAvg = avgDiffPct(neu);
+  const marketBetter = (diffOldAvg !== null && diffNewAvg !== null) && diffNewAvg < diffOldAvg;
+  const marketWorse  = (diffOldAvg !== null && diffNewAvg !== null) && diffNewAvg > diffOldAvg;
 
   let cls, label;
-  if (profitBetter && priceBetter) { cls = 'good'; label = '✅ คุ้มค่า ควรพิจารณานำเข้า'; }
-  else if (profitBetter && !priceBetter) { cls = 'warn'; label = '⚠️ กำไรดีขึ้น แต่แพงกว่าราคาตลาดเดิม'; }
-  else if (!profitBetter && priceBetter) { cls = 'warn'; label = '⚠️ ราคาสู้ตลาดได้ดีขึ้น แต่กำไรลดลง'; }
-  else { cls = 'bad'; label = '❌ ไม่คุ้ม'; }
+  if (profitUp && marketBetter) { cls = 'good'; label = '✅ พิจารณาเอาเข้าได้'; }
+  else if (profitFlatOrDown && marketWorse) { cls = 'bad'; label = '❌ ไม่คุ้ม'; }
+  else { cls = 'warn'; label = '⚠️ พิจารณาเพิ่มเติม'; }
 
   const profitTxt = profitDelta === null ? 'ไม่มีข้อมูล' : `${profitDelta>0?'+':''}${fmtMoney(profitDelta,2)} บาท/ชิ้น`;
+  const marketTxt = (diffOldAvg === null || diffNewAvg === null) ? 'ไม่มีข้อมูล'
+    : `ขายอยู่ ${(diffOldAvg*100>=0?'+':'')}${(diffOldAvg*100).toFixed(0)}% · ใหม่ ${(diffNewAvg*100>=0?'+':'')}${(diffNewAvg*100).toFixed(0)}%`;
 
   return `<div class="verdict-bar">
     <span class="verdict-badge ${cls}">${label}</span>
     <div class="verdict-detail">
-      <span>กำไร/ชิ้นเปลี่ยน: <b>${profitTxt}</b></span>
-      <span>ถูกกว่าคู่แข่ง: ขายอยู่ <b>${cheapOld}/3</b> ช่อง · ใหม่ <b>${cheapNew}/3</b> ช่อง</span>
+      <span>กำไร/ชิ้นเฉลี่ยเปลี่ยน: <b>${profitTxt}</b></span>
+      <span>ส่วนต่างราคาตลาดเฉลี่ย: <b>${marketTxt}</b></span>
     </div>
   </div>`;
 }
@@ -544,7 +560,7 @@ function buildCompareCard(pair, idx) {
   const old = pair.old, neu = pair.new;
   const title = (old && old.desc) || (neu && neu.desc) || `รายการที่ ${idx+1}`;
 
-  function priceStepLine(label, sellPrice, cost, marketPrice, summary, stepClass) {
+  function priceStepLine(label, sellPrice, cost, summary, diffPct, stepClass) {
     const profit = (sellPrice !== null && cost !== null) ? (sellPrice - cost) : null;
     return `<div class="price-step ${stepClass}">
       <div class="price-step-top">
@@ -553,7 +569,7 @@ function buildCompareCard(pair, idx) {
       </div>
       <div class="price-step-sub">
         <span>กำไร: <b>${profit===null?'–':fmtMoney(profit,2)+' บ.'}</b></span>
-        ${summaryTag(summary)}
+        ${summaryTag(summary, diffPct)}
       </div>
     </div>`;
   }
@@ -568,13 +584,13 @@ function buildCompareCard(pair, idx) {
       <div class="compare-tag ${tagClass}">${tagLabel}</div>
       <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
       <div class="compare-desc">${it.desc}</div>
-      ${qtyLines}
       <div class="kv-line"><span class="kv-label">ต้นทุน</span><span class="kv-val">${fmtMoney(it.cost)}</span></div>
       <div class="kv-line"><span class="kv-label">ราคาตลาด (คู่แข่ง)</span><span class="kv-val">${fmtMoney(it.purchaseCompetitorPrice)}</span></div>
-      ${priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseCompetitorPrice, it.purchaseSummary, 'step-purchase')}
-      ${priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.purchaseCompetitorPrice, it.ivSummary, 'step-iv')}
-      ${priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.purchaseCompetitorPrice, it.ikSummary, 'step-ik')}
+      ${priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseSummary, it.purchaseDiff, 'step-purchase')}
+      ${priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv')}
+      ${priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik')}
       ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
+      ${qtyLines}
     </div>`;
   }
 
