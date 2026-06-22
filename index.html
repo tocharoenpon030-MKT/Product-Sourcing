@@ -151,6 +151,20 @@ main { padding: 16px; max-width: 980px; margin: 0 auto; }
 .kv-label { color: var(--muted); }
 .kv-val { font-family: var(--mono); font-weight: 600; }
 
+.price-step {
+  margin-top: 8px; padding: 8px 10px;
+  background: var(--surface2); border-radius: 8px;
+  border-left: 3px solid transparent;
+}
+.price-step.step-purchase { background: rgba(37,99,235,.07); border-left-color: #2563eb; }
+.price-step.step-iv       { background: rgba(22,163,74,.07); border-left-color: #16a34a; }
+.price-step.step-ik       { background: rgba(217,119,6,.08); border-left-color: #d97706; }
+.price-step-top { display: flex; justify-content: space-between; align-items: baseline; }
+.price-step-top .kv-label { font-weight: 600; color: var(--text); font-size: 13px; }
+.price-step-top .kv-val { font-size: 14px; }
+.price-step-sub { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.price-step-sub b { font-family: var(--mono); color: var(--text); }
+
 /* ── tbl ── */
 .tbl-wrap {
   background: var(--surface);
@@ -461,14 +475,10 @@ function buildGroupPie(g) {
 function buildPage1() {
   if (!groups) return '';
   const totalItems = allItems.length;
-  const totalQty2568 = allItems.reduce((s,it)=>s+(it.qty2568||0),0);
-  const totalQty2569 = allItems.reduce((s,it)=>s+(it.qty2569||0),0);
 
   const statCards = `
     <div class="stat-card"><div class="label">จำนวนกลุ่มสินค้า</div><div class="value">${groups.length}</div><div class="sub">กลุ่ม</div></div>
     <div class="stat-card"><div class="label">จำนวนรายการทั้งหมด</div><div class="value">${totalItems}</div><div class="sub">รายการ (ขายอยู่+ใหม่)</div></div>
-    <div class="stat-card hl"><div class="label">จำนวนขาย 2568</div><div class="value">${fmt(totalQty2568,0)}</div><div class="sub">หน่วย (ม.ค.-ธ.ค.)</div></div>
-    <div class="stat-card hl"><div class="label">จำนวนขาย 2569</div><div class="value">${fmt(totalQty2569,0)}</div><div class="sub">หน่วย (ม.ค.-พ.ค.)</div></div>
   `;
 
   const groupBlocks = groups.map(g => {
@@ -534,6 +544,20 @@ function buildCompareCard(pair, idx) {
   const old = pair.old, neu = pair.new;
   const title = (old && old.desc) || (neu && neu.desc) || `รายการที่ ${idx+1}`;
 
+  function priceStepLine(label, sellPrice, cost, marketPrice, summary, stepClass) {
+    const profit = (sellPrice !== null && cost !== null) ? (sellPrice - cost) : null;
+    return `<div class="price-step ${stepClass}">
+      <div class="price-step-top">
+        <span class="kv-label">${label}</span>
+        <span class="kv-val">${fmtMoney(sellPrice)}</span>
+      </div>
+      <div class="price-step-sub">
+        <span>กำไร: <b>${profit===null?'–':fmtMoney(profit,2)+' บ.'}</b></span>
+        ${summaryTag(summary)}
+      </div>
+    </div>`;
+  }
+
   function colHtml(it, tagClass, tagLabel) {
     if (!it) return `<div class="compare-col"><div class="compare-tag ${tagClass}">${tagLabel}</div><div style="color:var(--muted);font-size:13px">ไม่มีข้อมูล</div></div>`;
     const qtyLines = tagClass === 'old' ? `
@@ -545,15 +569,11 @@ function buildCompareCard(pair, idx) {
       <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
       <div class="compare-desc">${it.desc}</div>
       ${qtyLines}
-      <div class="kv-line"><span class="kv-label">ราคาจัดซื้อ</span><span class="kv-val">${fmtMoney(it.purchasePrice)}</span></div>
-      <div class="kv-line"><span class="kv-label">% กำไรจัดซื้อ</span><span class="kv-val">${fmtPct(it.purchaseProfitPct)}</span></div>
-      <div class="kv-line"><span class="kv-label">กำไร/ชิ้น (จัดซื้อ)</span><span class="kv-val">${fmtMoney(it.purchaseProfitPerUnit)}</span></div>
-      <div class="kv-line"><span class="kv-label">ราคาคู่แข่ง (จัดซื้อ)</span><span class="kv-val">${fmtMoney(it.purchaseCompetitorPrice)}</span></div>
-      <div class="kv-line"><span class="kv-label">สรุปจัดซื้อ</span><span class="kv-val">${summaryTag(it.purchaseSummary)}</span></div>
-      <div class="kv-line"><span class="kv-label">ขาย IV รับเอง</span><span class="kv-val">${fmtMoney(it.ivSellPrice)}</span></div>
-      <div class="kv-line"><span class="kv-label">สรุป IV รับเอง</span><span class="kv-val">${summaryTag(it.ivSummary)}</span></div>
-      <div class="kv-line"><span class="kv-label">ขาย IK-IV ส่งให้</span><span class="kv-val">${fmtMoney(it.ikSellPrice)}</span></div>
-      <div class="kv-line"><span class="kv-label">สรุป IK-IV ส่งให้</span><span class="kv-val">${summaryTag(it.ikSummary)}</span></div>
+      <div class="kv-line"><span class="kv-label">ต้นทุน</span><span class="kv-val">${fmtMoney(it.cost)}</span></div>
+      <div class="kv-line"><span class="kv-label">ราคาตลาด (คู่แข่ง)</span><span class="kv-val">${fmtMoney(it.purchaseCompetitorPrice)}</span></div>
+      ${priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseCompetitorPrice, it.purchaseSummary, 'step-purchase')}
+      ${priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.purchaseCompetitorPrice, it.ivSummary, 'step-iv')}
+      ${priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.purchaseCompetitorPrice, it.ikSummary, 'step-ik')}
       ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
     </div>`;
   }
