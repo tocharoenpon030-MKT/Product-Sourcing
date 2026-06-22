@@ -2,724 +2,649 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>แดชบอร์ดเปรียบเทียบราคาสินค้า</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>แดชบอร์ด เทียบราคา-กำไร สินค้า</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
-
 :root {
-  --bg: #f5f6fa;
-  --surface: #ffffff;
-  --surface2: #f0f2f8;
-  --border: #e0e4ef;
-  --accent: #2e7d32;
-  --accent-light: #e8f5e9;
-  --accent2: #43a047;
-  --text: #1a1d2e;
-  --muted: #6b7280;
-  --muted2: #9ca3af;
-  --win: #2e7d32;
-  --lose: #c62828;
-  --warn: #e65100;
-  --tag-sell-bg: #e3f2fd;
-  --tag-sell-color: #1565c0;
-  --tag-new-bg: #fff8e1;
-  --tag-new-color: #e65100;
-  --header-bg: #388e3c;
+  --bg:        #ffffff;
+  --surface:   #f8f9fa;
+  --surface2:  #f0f1f3;
+  --border:    #e2e5e9;
+  --accent:    #e07b1e;
+  --accent2:   #2563eb;
+  --green:     #16a34a;
+  --red:       #dc2626;
+  --yellow:    #d97706;
+  --text:      #111827;
+  --muted:     #6b7280;
+  --font:      'Sarabun', sans-serif;
+  --mono:      'IBM Plex Mono', monospace;
+  --radius:    10px;
+  --old:       #6366f1;
+  --new:       #e07b1e;
 }
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 body {
-  font-family: 'Sarabun', sans-serif;
+  font-family: var(--font);
   background: var(--bg);
   color: var(--text);
+  font-size: 16px;
   min-height: 100vh;
+  overflow-x: hidden;
 }
-
-/* Header */
-header {
-  background: var(--header-bg);
-  padding: 0 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(12px);
+  border-bottom: 2px solid var(--border);
+  padding: 0 16px;
+  display: flex; align-items: center; justify-content: space-between;
   height: 52px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-header h1 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.01em;
-}
-
-.live-badge {
-  background: #fff;
-  color: var(--accent);
-  font-size: 0.68rem;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 20px;
-  letter-spacing: 0.08em;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.live-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--accent2);
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%,100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.07);
   gap: 10px;
 }
-
-.btn-sheet {
-  background: rgba(255,255,255,0.18);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.35);
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-family: 'Sarabun', sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: background 0.15s;
-}
-.btn-sheet:hover { background: rgba(255,255,255,0.28); }
-
-.btn-refresh {
-  background: rgba(255,255,255,0.15);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.3);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-family: 'Sarabun', sans-serif;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.btn-refresh:hover { background: rgba(255,255,255,0.25); }
-
-/* Sub-header tabs */
-.subnav {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 0 28px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
+.brand { font-size: 16px; font-weight: 700; letter-spacing: .5px; color: var(--accent); white-space: nowrap; }
+.brand span { color: var(--text); font-weight: 300; }
+.nav-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; }
+.nav-tabs::-webkit-scrollbar { display: none; }
 .tab-btn {
-  padding: 12px 18px;
-  font-size: 0.86rem;
-  font-weight: 600;
-  font-family: 'Sarabun', sans-serif;
-  color: var(--muted);
-  border: none;
-  background: none;
-  cursor: pointer;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -1px;
-  transition: all 0.15s;
-  white-space: nowrap;
+  white-space: nowrap; background: none; border: none;
+  color: var(--muted); font-family: var(--font);
+  font-size: 15px; font-weight: 600;
+  padding: 6px 12px; border-radius: 20px;
+  cursor: pointer; transition: all .2s;
 }
+.tab-btn.active, .tab-btn:hover { color: var(--text); background: var(--surface2); }
+.tab-btn.active { color: var(--accent); }
 
-.tab-btn.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
-.tab-btn:hover:not(.active) { color: var(--text); }
-
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-/* Main */
-main {
-  max-width: 1300px;
-  margin: 0 auto;
-  padding: 24px 24px;
-}
-
-/* KPI */
-.kpi-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin-bottom: 24px;
-}
-
-.kpi {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px 18px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.kpi-label {
-  font-size: 0.7rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 6px;
-}
-
-.kpi-value {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.kpi-sub {
-  font-size: 0.72rem;
-  color: var(--muted2);
-  margin-top: 3px;
-}
-
-.kpi-accent { border-top: 3px solid var(--accent); }
-
-/* Section */
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  margin-top: 8px;
-}
+main { padding: 16px; max-width: 980px; margin: 0 auto; }
+.page { display: none; animation: fadeIn .25s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:translateY(0) } }
 
 .section-title {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  padding-left: 10px;
-  border-left: 3px solid var(--accent);
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--muted); margin: 22px 0 11px;
+  display: flex; align-items: center; gap: 8px;
 }
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-.updated-text {
-  font-size: 0.7rem;
-  color: var(--muted2);
-  font-family: 'IBM Plex Mono', monospace;
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 3px; color: var(--text); }
+.page-sub   { font-size: 14px; color: var(--muted); margin-bottom: 18px; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px; margin-bottom: 16px;
 }
-
-/* Table */
-.table-wrap {
-  overflow-x: auto;
-  border-radius: 10px;
-  border: 1px solid var(--border);
+.stat-card {
   background: var(--surface);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  margin-bottom: 28px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 11px;
 }
+.stat-card .label { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 5px; }
+.stat-card .value { font-family: var(--mono); font-size: 17px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.stat-card .sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.stat-card.hl .value { color: var(--accent); }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.83rem;
-}
-
-thead th {
-  background: var(--surface2);
-  padding: 10px 14px;
-  text-align: left;
-  font-weight: 700;
-  font-size: 0.69rem;
-  letter-spacing: 0.07em;
-  color: var(--muted);
-  text-transform: uppercase;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--border);
-}
-
-thead th.num { text-align: right; }
-
-tbody tr {
-  border-bottom: 1px solid var(--border);
-  transition: background 0.1s;
-}
-
-tbody tr:last-child { border-bottom: none; }
-tbody tr:hover { background: #f8f9ff; }
-
-td {
-  padding: 11px 14px;
-  vertical-align: middle;
-}
-
-td.num {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.8rem;
-  text-align: right;
-}
-
-/* Pills */
-.pill {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.pill-sell {
-  background: var(--tag-sell-bg);
-  color: var(--tag-sell-color);
-  border: 1px solid #bbdefb;
-}
-
-.pill-new {
-  background: var(--tag-new-bg);
-  color: var(--tag-new-color);
-  border: 1px solid #ffe0b2;
-}
-
-/* Badge win/lose */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 9px;
-  border-radius: 20px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.badge-win {
-  background: #e8f5e9;
-  color: var(--win);
-  border: 1px solid #c8e6c9;
-}
-
-.badge-lose {
-  background: #ffebee;
-  color: var(--lose);
-  border: 1px solid #ffcdd2;
-}
-
-/* Step prices */
-.step-prices {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.step {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 9px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.76rem;
-  text-align: center;
-  min-width: 56px;
-}
-
-.step-label {
-  font-size: 0.6rem;
-  color: var(--muted2);
-  display: block;
-  font-family: 'Sarabun', sans-serif;
-  letter-spacing: 0;
-}
-
-.arrow-sep { color: var(--muted2); font-size: 0.65rem; }
-
-/* Profit share bar */
-.pshare-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 130px;
-}
-
-.pshare-bar {
-  flex: 1;
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.pshare-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: var(--accent2);
-}
-
-.pshare-fill.low { background: #ef9a9a; }
-.pshare-fill.mid { background: #ffb74d; }
-.pshare-fill.high { background: var(--accent2); }
-
-.pshare-val {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.78rem;
-  color: var(--text);
-  min-width: 42px;
-  text-align: right;
-}
-
-/* Loading / Error */
-#loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 0;
-  gap: 14px;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.spinner {
-  width: 30px; height: 30px;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-#error-msg {
-  display: none;
-  background: #fff3f3;
-  border: 1px solid #ffcdd2;
-  border-radius: 10px;
-  padding: 16px 20px;
-  color: var(--lose);
-  font-size: 0.86rem;
+.group-block {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
   margin-bottom: 18px;
 }
+.group-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 6px;
+}
+.group-name { font-size: 17px; font-weight: 700; color: var(--text); }
+.group-total { font-family: var(--mono); font-size: 14px; color: var(--accent); font-weight: 700; }
 
-/* Relevance hint */
-.relevance {
-  font-size: 0.7rem;
-  font-family: 'Sarabun', sans-serif;
-  color: var(--muted2);
-  margin-top: 2px;
+.pie-row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.pie-svg-wrap { flex-shrink: 0; }
+.pie-legend { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 6px; }
+.pie-leg-item { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.pie-leg-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.pie-leg-name { flex: 1; color: var(--text); font-weight: 600; }
+.pie-leg-val { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.pie-leg-pct { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent); white-space: nowrap; min-width: 46px; text-align: right; }
+
+.note {
+  background: rgba(217,119,6,.07); border: 1px solid rgba(217,119,6,.3);
+  border-radius: var(--radius); padding: 10px 14px;
+  font-size: 13px; color: var(--yellow); margin-bottom: 14px;
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.note::before { content: '⚠'; flex-shrink: 0; margin-top: 1px; }
+
+/* ── compare cards (old vs new) ── */
+.compare-wrap { display: flex; flex-direction: column; gap: 14px; }
+.compare-card {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; background: var(--surface);
+}
+.compare-card-head {
+  padding: 10px 14px; background: var(--surface2);
+  font-size: 14px; font-weight: 700; color: var(--text);
+  border-bottom: 1.5px solid var(--border);
+}
+.compare-row { display: grid; grid-template-columns: 1fr 1fr; }
+.compare-col { padding: 12px 14px; }
+.compare-col.old { border-right: 1.5px solid var(--border); }
+.compare-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  padding: 2px 9px; border-radius: 20px; margin-bottom: 8px;
+}
+.compare-tag.old { background: rgba(99,102,241,.12); color: var(--old); }
+.compare-tag.new { background: rgba(224,123,30,.12); color: var(--new); }
+.compare-brand { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.compare-desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
+.kv-line { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+.kv-line:last-child { border-bottom: none; }
+.kv-label { color: var(--muted); }
+.kv-val { font-family: var(--mono); font-weight: 600; }
+
+/* ── tbl ── */
+.tbl-wrap {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: auto; margin-bottom: 16px;
+}
+table { width: 100%; border-collapse: collapse; min-width: 340px; }
+thead th {
+  background: var(--surface2);
+  color: var(--muted); font-size: 12px; font-weight: 700;
+  letter-spacing: .5px;
+  padding: 8px 9px; text-align: right; white-space: nowrap;
+  border-bottom: 1.5px solid var(--border);
+}
+thead th:first-child, thead th:nth-child(2), thead th:nth-child(3) { text-align: left; }
+thead th.sticky-col { position: sticky; left: 0; background: var(--surface2); z-index: 2; }
+tbody td {
+  padding: 7px 9px; border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 13px; text-align: right; white-space: nowrap;
+}
+tbody td.txt { text-align: left; font-family: var(--font); font-size: 13px; white-space: normal; }
+tbody td.sticky-col {
+  position: sticky; left: 0; background: var(--surface);
+  border-right: 1px solid var(--border); z-index: 1;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:nth-child(even) td { background: rgba(0,0,0,.02); }
+tbody tr.row-old td { background: rgba(99,102,241,.05); }
+tbody tr.row-new td { background: rgba(224,123,30,.05); }
+.tag-pill { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 20px; display: inline-block; }
+.tag-pill.old { background: rgba(99,102,241,.12); color: var(--old); }
+.tag-pill.new { background: rgba(224,123,30,.12); color: var(--new); }
+.cmp-cheap { color: var(--green); font-weight: 700; }
+.cmp-exp   { color: var(--red); font-weight: 700; }
+.cmp-eq    { color: var(--muted); }
+
+.data-banner {
+  background:linear-gradient(90deg,#dcfce7,#bbf7d0); border-bottom:2px solid #86efac;
+  padding:8px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+.data-banner .lbl { font-size:12px; color:#15803d; font-weight:600; }
+.data-banner a {
+  background:#16a34a;color:#fff;font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;
+  padding:6px 14px;border-radius:20px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;
+  white-space:nowrap;box-shadow:0 1px 4px rgba(22,163,74,.4);
 }
 
-.relevance.worth { color: var(--win); }
-.relevance.maybe { color: var(--warn); }
-.relevance.low   { color: var(--muted2); }
+footer {
+  text-align: center; padding: 20px 16px;
+  font-size: 13px; color: var(--muted);
+  border-top: 1px solid var(--border); margin-top: 28px;
+}
 
-@media (max-width: 640px) {
-  header { padding: 0 14px; }
-  .subnav { padding: 0 14px; }
-  main { padding: 16px 12px; }
+select.filter-select {
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  border: 1.5px solid var(--border); border-radius: 20px;
+  padding: 5px 10px; color: var(--text); background: var(--surface);
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .topbar { height: 48px; }
+  .brand { font-size: 14px; }
+  .tab-btn { font-size: 13px; padding: 5px 9px; }
+  main { padding: 10px; }
+  .page-title { font-size: 19px; }
+  .compare-row { grid-template-columns: 1fr; }
+  .compare-col.old { border-right: none; border-bottom: 1.5px solid var(--border); }
+  .pie-row { flex-direction: column; align-items: stretch; }
 }
 </style>
 </head>
 <body>
-
-<header>
-  <div class="header-left">
-    <h1>📊 แดชบอร์ดเปรียบเทียบราคาสินค้า</h1>
-    <span class="live-badge"><span class="live-dot"></span>LIVE</span>
-  </div>
-  <div class="header-right">
-    <a class="btn-sheet" href="https://docs.google.com/spreadsheets/d/1tBrWrp4Hz8GOUQzq4UZ-NXFPscajlsahs2fTi1CPa6o/edit" target="_blank">↗ เปิด Google Sheet</a>
-    <button class="btn-refresh" onclick="loadData()">↻ รีเฟรช</button>
-  </div>
-</header>
-
-<div class="subnav" id="subnav">
-  <!-- tabs injected by JS -->
+<div class="topbar">
+  <div class="brand">เทียบราคา<span>-กำไร</span></div>
+  <nav class="nav-tabs" id="navTabs"></nav>
 </div>
-
-<main>
-  <div id="error-msg"></div>
-  <div id="loading">
-    <div class="spinner"></div>
-    <span>กำลังดึงข้อมูลจาก Google Sheets...</span>
-  </div>
-  <div id="dashboard" style="display:none">
-    <div class="kpi-row" id="kpi-row"></div>
-    <div id="tab-panels"></div>
-  </div>
-</main>
+<div class="data-banner">
+  <span class="lbl">📊 ดูข้อมูลดิบ ใน Google Sheets</span>
+  <a href="https://docs.google.com/spreadsheets/d/1tBrWrp4Hz8GOUQzq4UZ-NXFPscajlsahs2fTi1CPa6o/edit?gid=1525790701#gid=1525790701" target="_blank" rel="noopener">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    เปิด Google Sheet
+  </a>
+</div>
+<main id="mainContent"></main>
+<footer id="footerEl">กำลังโหลดข้อมูล…</footer>
 
 <script>
 const SHEET_ID = '1tBrWrp4Hz8GOUQzq4UZ-NXFPscajlsahs2fTi1CPa6o';
-const SHEET_NAME = 'สรุป';
-const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+const GID = '1525790701';
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
-// ---- CSV parser ----
-function parseCSV(text) {
-  return text.split('\n').map(line => {
-    const cols = []; let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '"') { inQ = !inQ; }
-      else if (line[i] === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
-      else cur += line[i];
-    }
-    cols.push(cur.trim());
-    return cols;
+const fmt = (n, dec=0) => (n===null||n===undefined||isNaN(n)) ? '–' : Number(n).toLocaleString('th-TH',{maximumFractionDigits:dec, minimumFractionDigits:dec});
+const fmtPct = (n) => (n===null||n===undefined||isNaN(n)) ? '–' : (n*100>=0?'+':'') + (n*100).toFixed(1) + '%';
+const fmtMoney = (n,dec=2) => (n===null||n===undefined||isNaN(n)) ? '–' : Number(n).toLocaleString('th-TH',{maximumFractionDigits:dec, minimumFractionDigits:dec});
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function numClean(v) {
+  if (v === undefined || v === null) return null;
+  let s = String(v).trim();
+  if (s === '' || s === '-' || s === '–') return null;
+  const isPct = s.includes('%');
+  s = s.replace(/,/g,'').replace(/%/g,'').trim();
+  let n = parseFloat(s);
+  if (isNaN(n)) return null;
+  if (isPct) n = n/100;
+  return n;
+}
+
+function parseSheet(csvText) {
+  const lines = csvText.replace(/\r/g,'').split('\n').filter(l => l.trim().length>0);
+  const rows = lines.map(parseCSVLine);
+  // data starts row index 2 (0-indexed) -> excel row 3
+  const items = [];
+  for (let i = 2; i < rows.length; i++) {
+    const r = rows[i];
+    const type1 = (r[0]||'').trim();
+    if (!type1) continue;
+    const item = {
+      type1,
+      type2: (r[1]||'').trim(),
+      brand: (r[2]||'').trim(),
+      code: (r[3]||'').trim(),
+      desc: (r[4]||'').trim(),
+      groupProfit: numClean(r[5]),
+      itemProfit: numClean(r[6]),
+      qty2568: numClean(r[7]),
+      qty2569: numClean(r[8]),
+      cost: numClean(r[9]),
+      purchasePrice: numClean(r[10]),
+      purchaseProfitPct: numClean(r[11]),
+      purchaseProfitPerUnit: numClean(r[12]),
+      purchaseCompetitorPrice: numClean(r[13]),
+      purchaseDiff: numClean(r[14]),
+      purchaseSummary: (r[15]||'').trim(),
+      ivSellPrice: numClean(r[16]),
+      ivProfitPct: numClean(r[17]),
+      ivProfitPerUnit: numClean(r[18]),
+      ivCompetitorPrice: numClean(r[19]),
+      ivDiff: numClean(r[20]),
+      ivSummary: (r[21]||'').trim(),
+      ikSellPrice: numClean(r[22]),
+      ikProfitPct: numClean(r[23]),
+      ikProfitPerUnit: numClean(r[24]),
+      ikCompetitorPrice: numClean(r[25]),
+      ikDiff: numClean(r[26]),
+      ikSummary: (r[27]||'').trim(),
+      website: (r[28]||'').trim(),
+    };
+    items.push(item);
+  }
+  return items;
+}
+
+// ── group items into pairs (old "ขายอยู่" + new "ใหม่") under each ประเภท1 ──
+function buildGroups(items) {
+  const order = [];
+  const map = {};
+  items.forEach(it => {
+    if (!map[it.type1]) { map[it.type1] = { name: it.type1, groupProfit: 0, pairs: [] }; order.push(it.type1); }
+    const g = map[it.type1];
+    if (it.groupProfit !== null) g.groupProfit = it.groupProfit;
   });
+  // pair consecutive ขายอยู่/ใหม่ rows that share description root (or just sequential pairing)
+  order.forEach(name => {
+    const g = map[name];
+    const groupItems = items.filter(it => it.type1 === name);
+    let i = 0;
+    while (i < groupItems.length) {
+      const cur = groupItems[i];
+      const next = groupItems[i+1];
+      if (cur.type2 === 'ขายอยู่' && next && next.type2 === 'ใหม่') {
+        g.pairs.push({ old: cur, new: next });
+        i += 2;
+      } else {
+        g.pairs.push({ old: cur.type2==='ขายอยู่'?cur:null, new: cur.type2==='ใหม่'?cur:null });
+        i += 1;
+      }
+    }
+  });
+  return order.map(name => map[name]);
 }
 
-function n(v) { const x = parseFloat(v); return isNaN(x) ? null : x; }
-function fmt(v, dec=2) {
-  if (v===null||v===undefined||isNaN(v)) return '—';
-  return v.toLocaleString('th-TH', {minimumFractionDigits:dec, maximumFractionDigits:dec});
-}
-function fmtK(v) {
-  if (!v) return '—';
-  return v>=1000000 ? (v/1000000).toFixed(2)+'M' : v>=1000 ? (v/1000).toFixed(0)+'K' : fmt(v,0);
+let allItems = null;
+let groups = null;
+
+function load() {
+  fetch(CSV_URL)
+    .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(csv => {
+      try {
+        allItems = parseSheet(csv);
+        if (!allItems.length) throw new Error('อ่านข้อมูลไม่พบรายการสินค้า');
+        groups = buildGroups(allItems);
+        document.getElementById('footerEl').textContent = 'ข้อมูล ณ วันที่ 22 มิ.ย. 2569  |  หน่วย: บาท';
+        renderAll();
+      } catch(e) {
+        showError('อ่านข้อมูลไม่สำเร็จ: ' + e.message);
+      }
+    })
+    .catch(e => showError('เชื่อมต่อ Google Sheets ไม่ได้: ' + e.message));
 }
 
-// ---- Build step prices ----
-function stepPrices(p1,p2,p3) {
-  return `<div class="step-prices">
-    <div class="step"><span class="step-label">จัดซื้อ</span>${fmt(p1)}</div>
-    <span class="arrow-sep">›</span>
-    <div class="step"><span class="step-label">IV รับเอง</span>${fmt(p2)}</div>
-    <span class="arrow-sep">›</span>
-    <div class="step"><span class="step-label">IK-IV ส่ง</span>${fmt(p3)}</div>
+function showError(msg) {
+  document.getElementById('mainContent').innerHTML = `<div style="text-align:center;padding:60px 20px">
+    <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+    <div style="font-size:15px;font-weight:700;color:#dc2626;margin-bottom:8px">โหลดข้อมูลไม่สำเร็จ</div>
+    <div style="font-size:13px;color:#6b7280;margin-bottom:16px">${msg}</div>
+    <button onclick="load()" style="background:#2563eb;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Sarabun',sans-serif">ลองใหม่</button>
   </div>`;
 }
 
-// ---- Market badge ----
-function marketBadge(salePrice, market) {
-  if (!salePrice || !market) return '—';
-  const diff = salePrice - market;
-  const pct = Math.abs(diff/market*100).toFixed(1);
-  return diff < 0
-    ? `<span class="badge badge-win">✓ ถูกกว่า ${pct}%</span>`
-    : `<span class="badge badge-lose">✗ แพงกว่า ${pct}%</span>`;
-}
-
-// ---- Profit share bar ----
-function profitShareBar(itemProfit, groupProfit) {
-  if (!itemProfit || !groupProfit) return '—';
-  const pct = itemProfit / groupProfit * 100;
-  const cls = pct >= 15 ? 'high' : pct >= 5 ? 'mid' : 'low';
-  const worth = pct >= 15 ? '✓ คุ้มพิจารณา' : pct >= 5 ? '~ พอพิจารณา' : '✗ น้อยมาก';
-  const worthCls = pct >= 15 ? 'worth' : pct >= 5 ? 'maybe' : 'low';
-  return `<div class="pshare-wrap">
-    <div class="pshare-bar"><div class="pshare-fill ${cls}" style="width:${Math.min(pct,100)}%"></div></div>
-    <span class="pshare-val">${pct.toFixed(1)}%</span>
-  </div>
-  <div class="relevance ${worthCls}">${worth}</div>`;
-}
-
-// ---- Build table ----
-function buildTable(rows) {
-  // max for bars
-  const maxGroupP = Math.max(...rows.map(r=>n(r.groupProfit)||0));
-
-  return `<div class="table-wrap"><table>
-    <thead><tr>
-      <th>ประเภท</th>
-      <th>รายละเอียดสินค้า</th>
-      <th class="num">ต้นทุน</th>
-      <th>ราคาขาย 3 สเต็ป</th>
-      <th class="num">ราคาตลาด</th>
-      <th>สู้ตลาด?</th>
-      <th>กำไร/ชิ้น</th>
-      <th class="num">ยอดขาย 2568</th>
-      <th class="num">ยอดขาย 2569</th>
-      <th>% กำไรในกลุ่ม</th>
-    </tr></thead>
-    <tbody>
-    ${rows.map(r => {
-      const cost  = n(r.cost);
-      const p1    = n(r.price1);
-      const p2    = n(r.price2);
-      const p3    = n(r.price3);
-      const mkt   = n(r.market);
-      const profit= (p3!=null&&cost!=null) ? p3-cost : null;
-      const gP    = n(r.groupProfit);
-      const iP    = n(r.itemProfit);
-      const isNew = r.type2 === 'ใหม่';
-      const pillCls = isNew ? 'pill-new' : 'pill-sell';
-      const pillTxt = isNew ? '◎ ใหม่' : '● ขายอยู่';
-
-      return `<tr>
-        <td><span class="pill ${pillCls}">${pillTxt}</span></td>
-        <td style="white-space:normal;max-width:220px;font-size:0.81rem;line-height:1.4">${r.name}</td>
-        <td class="num">${fmt(cost)}</td>
-        <td>${stepPrices(p1,p2,p3)}</td>
-        <td class="num" style="color:#6b7280">${fmt(mkt)}</td>
-        <td>${marketBadge(p3,mkt)}</td>
-        <td class="num" style="color:${profit>0?'#2e7d32':'#c62828'}">${fmt(profit)}</td>
-        <td class="num">${r.sell68?Number(r.sell68).toLocaleString('th-TH'):'—'}</td>
-        <td class="num">${r.sell69?Number(r.sell69).toLocaleString('th-TH'):'—'}</td>
-        <td>${profitShareBar(iP, gP)}</td>
-      </tr>`;
-    }).join('')}
-    </tbody>
-  </table></div>`;
-}
-
-// ---- Active tab ----
-let activeTab = null;
-function switchTab(tabId) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
-  document.getElementById('tb-' + tabId).classList.add('active');
-  document.getElementById('tp-' + tabId).classList.add('active');
-  activeTab = tabId;
-}
-
-// ---- MAIN LOAD ----
-async function loadData() {
-  const errEl   = document.getElementById('error-msg');
-  const loading = document.getElementById('loading');
-  const dash    = document.getElementById('dashboard');
-  errEl.style.display = 'none';
-  loading.style.display = 'flex';
-  dash.style.display = 'none';
-
-  try {
-    const res  = await fetch(SHEET_URL);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const rows = parseCSV(await res.text());
-
-    // --- Parse rows ---
-    // A=col0(ประเภท1), B=col1(ประเภท2), skip C/D, E=col4(ชื่อ), F=col5(กำไรกลุ่ม), G=col6(กำไรสินค้า)
-    // col7=ขาย2568, col8=ขาย2569, col9=ต้นทุน
-    // col10=ราคาจัดซื้อ, ... col16=ราคาIV, ... col22=ราคาIK-IV, col25=ราคาตลาด
-
-    // Skip header rows (rows where col0 is not a real category)
-    const SKIP = new Set(['ลำดับเทียบ','','ประเภท1',undefined]);
-
-    const items = [];
-    for (const r of rows) {
-      const type1 = r[0]?.replace(/^"|"$/g,'').trim();
-      const type2 = r[1]?.replace(/^"|"$/g,'').trim();
-      const name  = r[4]?.replace(/^"|"$/g,'').trim();
-      if (!type1 || SKIP.has(type1) || !name || name === 'รายละเอียด') continue;
-
-      items.push({
-        type1,
-        type2,
-        name,
-        groupProfit : r[5],
-        itemProfit  : r[6],
-        sell68      : r[7],
-        sell69      : r[8],
-        cost        : r[9],
-        price1      : r[10],   // จัดซื้อ
-        price2      : r[16],   // IV รับเอง
-        price3      : r[22],   // IK-IV ส่งให้
-        market      : r[25],   // ราคาตลาด
-      });
+// ── PIE CHART (pure SVG, no deps) ──
+const PIE_COLORS = ['#e07b1e','#2563eb','#16a34a','#d97706','#6366f1','#dc2626','#0ea5e9','#9333ea','#059669','#ea580c'];
+function buildPieSVG(slices, size=140) {
+  const total = slices.reduce((s,x)=>s+x.value,0) || 1;
+  const r = size/2 - 4, cx = size/2, cy = size/2;
+  let angle = -90;
+  let paths = '';
+  slices.forEach((s,i) => {
+    const frac = s.value/total;
+    const sweep = frac*360;
+    const x1 = cx + r*Math.cos(angle*Math.PI/180);
+    const y1 = cy + r*Math.sin(angle*Math.PI/180);
+    const endAngle = angle+sweep;
+    const x2 = cx + r*Math.cos(endAngle*Math.PI/180);
+    const y2 = cy + r*Math.sin(endAngle*Math.PI/180);
+    const large = sweep > 180 ? 1 : 0;
+    if (frac >= 0.999) {
+      paths += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${s.color}"/>`;
+    } else if (frac > 0.0001) {
+      paths += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${s.color}" stroke="#fff" stroke-width="1.5"/>`;
     }
+    angle = endAngle;
+  });
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}<circle cx="${cx}" cy="${cy}" r="${r*0.55}" fill="#fff"/></svg>`;
+}
 
-    // Group by type1
-    const groups = {};
-    for (const item of items) {
-      if (!groups[item.type1]) groups[item.type1] = [];
-      groups[item.type1].push(item);
-    }
+function buildGroupPie(g) {
+  // slices = each item's itemProfit (G), remainder = groupProfit(F) - sum(items)
+  const itemsWithProfit = [];
+  g.pairs.forEach(p => {
+    if (p.old && p.old.itemProfit) itemsWithProfit.push({ name: p.old.desc, value: p.old.itemProfit });
+  });
+  const sumItems = itemsWithProfit.reduce((s,x)=>s+x.value,0);
+  const total = g.groupProfit || sumItems;
+  const remainder = Math.max(0, total - sumItems);
 
-    const typeKeys = Object.keys(groups);
+  const slices = itemsWithProfit.map((it,i) => ({ ...it, color: PIE_COLORS[i % PIE_COLORS.length] }));
+  if (remainder > 0.01) slices.push({ name: 'สินค้าอื่นๆ ในกลุ่ม', value: remainder, color: '#d1d5db' });
 
-    // KPI
-    const totalSell68  = items.reduce((s,r)=>s+(n(r.sell68)||0),0);
-    const totalSell69  = items.reduce((s,r)=>s+(n(r.sell69)||0),0);
-    const totalItems   = items.length;
-    const newItems     = items.filter(r=>r.type2==='ใหม่').length;
-    // group profits (first item per group has groupProfit)
-    const groupProfits = typeKeys.map(k => n(groups[k][0]?.groupProfit)||0);
-    const totalGroupP  = groupProfits.reduce((a,b)=>a+b,0);
-
-    document.getElementById('kpi-row').innerHTML = `
-      <div class="kpi kpi-accent">
-        <div class="kpi-label">กำไรรวมทุกกลุ่ม (2568)</div>
-        <div class="kpi-value">${fmtK(totalGroupP)}</div>
-        <div class="kpi-sub">บาท</div>
-      </div>
-      ${typeKeys.map(k=>`
-      <div class="kpi">
-        <div class="kpi-label">กำไรกลุ่ม ${k} (2568)</div>
-        <div class="kpi-value">${fmtK(n(groups[k][0]?.groupProfit)||0)}</div>
-        <div class="kpi-sub">บาท</div>
-      </div>`).join('')}
-      <div class="kpi">
-        <div class="kpi-label">ยอดขาย 2568</div>
-        <div class="kpi-value">${totalSell68.toLocaleString('th-TH')}</div>
-        <div class="kpi-sub">ชิ้น/แผ่น</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">ยอดขาย 2569 (ม.ค.–พ.ค.)</div>
-        <div class="kpi-value">${totalSell69.toLocaleString('th-TH')}</div>
-        <div class="kpi-sub">ชิ้น/แผ่น</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">สินค้าในระบบ</div>
-        <div class="kpi-value">${totalItems}</div>
-        <div class="kpi-sub">${totalItems-newItems} ขายอยู่ · ${newItems} พิจารณาใหม่</div>
-      </div>`;
-
-    // Tabs
-    const subnav = document.getElementById('subnav');
-    subnav.innerHTML = typeKeys.map((k,i)=>
-      `<button class="tab-btn${i===0?' active':''}" id="tb-${k}" onclick="switchTab('${k}')">${k}</button>`
-    ).join('');
-
-    // Panels
-    document.getElementById('tab-panels').innerHTML = typeKeys.map((k,i)=>`
-      <div class="tab-content${i===0?' active':''}" id="tp-${k}">
-        <div class="section-head">
-          <div class="section-title">กลุ่ม ${k} — เปรียบเทียบราคาและกำไร</div>
-          <div class="updated-text" id="upd-${k}"></div>
-        </div>
-        ${buildTable(groups[k])}
-      </div>`).join('');
-
-    const now = new Date().toLocaleString('th-TH');
-    typeKeys.forEach(k=>{
-      const el = document.getElementById('upd-'+k);
-      if(el) el.textContent = 'อัปเดต '+now;
-    });
-
-    activeTab = typeKeys[0];
-    loading.style.display = 'none';
-    dash.style.display = 'block';
-
-  } catch(err) {
-    loading.style.display = 'none';
-    errEl.style.display = 'block';
-    errEl.innerHTML = `⚠️ โหลดข้อมูลไม่ได้: ${err.message}<br><small>ตรวจสอบว่า Google Sheet แชร์เป็น Public และชื่อ Sheet ถูกต้อง</small>`;
+  if (!slices.length) {
+    return `<div style="color:var(--muted);font-size:13px;padding:20px 0">ไม่มีข้อมูลกำไรสำหรับสร้างแผนภูมิ</div>`;
   }
+
+  const svg = buildPieSVG(slices, 140);
+  const legend = slices.map(s => {
+    const pct = total ? (s.value/total*100) : 0;
+    return `<div class="pie-leg-item">
+      <div class="pie-leg-dot" style="background:${s.color}"></div>
+      <div class="pie-leg-name">${s.name}</div>
+      <div class="pie-leg-val">${fmtMoney(s.value,0)}</div>
+      <div class="pie-leg-pct">${pct.toFixed(1)}%</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="pie-row">
+    <div class="pie-svg-wrap">${svg}</div>
+    <div class="pie-legend">${legend}</div>
+  </div>`;
 }
 
-loadData();
-setInterval(loadData, 5*60*1000);
+// ── PAGE 1: ภาพรวม ──
+function buildPage1() {
+  if (!groups) return '';
+  const totalGroupProfit = groups.reduce((s,g)=>s+(g.groupProfit||0),0);
+  const totalItems = allItems.length;
+  const totalQty2569 = allItems.reduce((s,it)=>s+(it.qty2569||0),0);
+
+  const statCards = `
+    <div class="stat-card hl"><div class="label">กำไรรวมทุกกลุ่ม (ปี 2568)</div><div class="value">${fmtMoney(totalGroupProfit,0)}</div><div class="sub">บาท</div></div>
+    <div class="stat-card"><div class="label">จำนวนกลุ่มสินค้า</div><div class="value">${groups.length}</div><div class="sub">กลุ่ม</div></div>
+    <div class="stat-card"><div class="label">จำนวนรายการทั้งหมด</div><div class="value">${totalItems}</div><div class="sub">รายการ (ขายอยู่+ใหม่)</div></div>
+    <div class="stat-card"><div class="label">ยอดขายรวม ปี 2569</div><div class="value">${fmt(totalQty2569,0)}</div><div class="sub">หน่วย (ม.ค.-พ.ค.)</div></div>
+  `;
+
+  const groupBlocks = groups.map(g => {
+    const pairCount = g.pairs.length;
+    return `<div class="group-block">
+      <div class="group-head">
+        <div class="group-name">${g.name}</div>
+        <div class="group-total">กำไรรวมกลุ่ม: ${fmtMoney(g.groupProfit,0)} บาท</div>
+      </div>
+      <div class="note">สัดส่วนกำไรเฉพาะของแต่ละรายการ (ขายอยู่) เทียบกับกำไรรวมทั้งกลุ่ม — มี ${pairCount} คู่เปรียบเทียบ</div>
+      ${buildGroupPie(g)}
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="page-title">ภาพรวม เทียบราคา-กำไร</div>
+  <div class="page-sub">สรุปกำไรและสัดส่วนรายการสินค้า แยกตามกลุ่ม</div>
+  <div class="stat-grid">${statCards}</div>
+  <div class="section-title">สัดส่วนกำไรแต่ละกลุ่ม</div>
+  ${groupBlocks}
+  `;
+}
+
+// ── PAGE 2: เทียบรายละเอียด (cards old vs new) ──
+function summaryTag(summary) {
+  if (summary === 'ถูก') return `<span class="cmp-cheap">ถูกกว่าคู่แข่ง</span>`;
+  if (summary === 'แพง') return `<span class="cmp-exp">แพงกว่าคู่แข่ง</span>`;
+  return `<span class="cmp-eq">${summary||'–'}</span>`;
+}
+
+function buildCompareCard(pair, idx) {
+  const old = pair.old, neu = pair.new;
+  const title = (old && old.desc) || (neu && neu.desc) || `รายการที่ ${idx+1}`;
+
+  function colHtml(it, tagClass, tagLabel) {
+    if (!it) return `<div class="compare-col"><div class="compare-tag ${tagClass}">${tagLabel}</div><div style="color:var(--muted);font-size:13px">ไม่มีข้อมูล</div></div>`;
+    return `<div class="compare-col ${tagClass==='old'?'old':''}">
+      <div class="compare-tag ${tagClass}">${tagLabel}</div>
+      <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
+      <div class="compare-desc">${it.desc}</div>
+      <div class="kv-line"><span class="kv-label">ราคาจัดซื้อ</span><span class="kv-val">${fmtMoney(it.purchasePrice)}</span></div>
+      <div class="kv-line"><span class="kv-label">% กำไรจัดซื้อ</span><span class="kv-val">${fmtPct(it.purchaseProfitPct)}</span></div>
+      <div class="kv-line"><span class="kv-label">กำไร/ชิ้น (จัดซื้อ)</span><span class="kv-val">${fmtMoney(it.purchaseProfitPerUnit)}</span></div>
+      <div class="kv-line"><span class="kv-label">ราคาคู่แข่ง (จัดซื้อ)</span><span class="kv-val">${fmtMoney(it.purchaseCompetitorPrice)}</span></div>
+      <div class="kv-line"><span class="kv-label">สรุปจัดซื้อ</span><span class="kv-val">${summaryTag(it.purchaseSummary)}</span></div>
+      <div class="kv-line"><span class="kv-label">ขาย IV รับเอง</span><span class="kv-val">${fmtMoney(it.ivSellPrice)}</span></div>
+      <div class="kv-line"><span class="kv-label">สรุป IV รับเอง</span><span class="kv-val">${summaryTag(it.ivSummary)}</span></div>
+      <div class="kv-line"><span class="kv-label">ขาย IK-IV ส่งให้</span><span class="kv-val">${fmtMoney(it.ikSellPrice)}</span></div>
+      <div class="kv-line"><span class="kv-label">สรุป IK-IV ส่งให้</span><span class="kv-val">${summaryTag(it.ikSummary)}</span></div>
+      ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
+    </div>`;
+  }
+
+  return `<div class="compare-card">
+    <div class="compare-card-head">${title}</div>
+    <div class="compare-row">
+      ${colHtml(old,'old','ขายอยู่')}
+      ${colHtml(neu,'new','สินค้าใหม่')}
+    </div>
+  </div>`;
+}
+
+function buildPage2() {
+  if (!groups) return '';
+  const filterOptions = groups.map(g=>`<option value="${g.name}">${g.name}</option>`).join('');
+  const sel = `<select class="filter-select" id="grpFilter" onchange="onFilterChange()">
+    <option value="__all__">ทุกกลุ่ม</option>${filterOptions}
+  </select>`;
+
+  return `
+  <div class="page-title">เทียบรายละเอียดสินค้า</div>
+  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง</div>
+  <div style="margin-bottom:14px">${sel}</div>
+  <div class="compare-wrap" id="compareWrap"></div>
+  `;
+}
+
+function renderComparePage() {
+  const sel = document.getElementById('grpFilter');
+  const val = sel ? sel.value : '__all__';
+  const wrap = document.getElementById('compareWrap');
+  if (!wrap) return;
+  let html = '';
+  groups.forEach(g => {
+    if (val !== '__all__' && g.name !== val) return;
+    html += `<div class="section-title">${g.name}</div>`;
+    g.pairs.forEach((p,i) => { html += buildCompareCard(p,i); });
+  });
+  wrap.innerHTML = html;
+}
+
+function onFilterChange() { renderComparePage(); }
+
+// ── PAGE 3: ตารางรวม ──
+function buildPage3() {
+  if (!allItems) return '';
+  const rows = allItems.map(it => {
+    const rowCls = it.type2==='ขายอยู่' ? 'row-old' : 'row-new';
+    const tagCls = it.type2==='ขายอยู่' ? 'old' : 'new';
+    return `<tr class="${rowCls}">
+      <td class="txt sticky-col">${it.type1}</td>
+      <td><span class="tag-pill ${tagCls}">${it.type2}</span></td>
+      <td class="txt">${it.brand}</td>
+      <td class="txt">${it.code||'–'}</td>
+      <td class="txt" style="min-width:200px">${it.desc}</td>
+      <td>${fmt(it.qty2568,0)}</td>
+      <td>${fmt(it.qty2569,0)}</td>
+      <td>${fmtMoney(it.cost)}</td>
+      <td>${fmtMoney(it.purchasePrice)}</td>
+      <td>${fmtPct(it.purchaseProfitPct)}</td>
+      <td>${fmtMoney(it.purchaseProfitPerUnit)}</td>
+      <td>${fmtMoney(it.purchaseCompetitorPrice)}</td>
+      <td>${fmtPct(it.purchaseDiff)}</td>
+      <td>${summaryTag(it.purchaseSummary)}</td>
+      <td>${fmtMoney(it.ivSellPrice)}</td>
+      <td>${fmtPct(it.ivProfitPct)}</td>
+      <td>${fmtMoney(it.ivProfitPerUnit)}</td>
+      <td>${fmtMoney(it.ivCompetitorPrice)}</td>
+      <td>${fmtPct(it.ivDiff)}</td>
+      <td>${summaryTag(it.ivSummary)}</td>
+      <td>${fmtMoney(it.ikSellPrice)}</td>
+      <td>${fmtPct(it.ikProfitPct)}</td>
+      <td>${fmtMoney(it.ikProfitPerUnit)}</td>
+      <td>${fmtMoney(it.ikCompetitorPrice)}</td>
+      <td>${fmtPct(it.ikDiff)}</td>
+      <td>${summaryTag(it.ikSummary)}</td>
+      <td class="txt">${it.website||'–'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="page-title">ตารางข้อมูลทั้งหมด</div>
+  <div class="page-sub">ทุกคอลัมน์ ทุกรายการ — เลื่อนแนวนอนเพื่อดูข้อมูลทั้งหมด</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr>
+      <th class="sticky-col">ประเภท1</th><th>ประเภท2</th><th>ยี่ห้อ</th><th>รหัสสินค้า</th><th>รายละเอียด</th>
+      <th>ขาย68</th><th>ขาย69</th><th>ต้นทุน</th>
+      <th>ราคาจัดซื้อ</th><th>%กำไรจัดซื้อ</th><th>กำไร/ชิ้น</th><th>ราคาคู่แข่ง</th><th>ส่วนต่าง</th><th>สรุป</th>
+      <th>ขาย IV</th><th>%กำไร IV</th><th>กำไร/ชิ้น</th><th>ราคาคู่แข่ง</th><th>ส่วนต่าง</th><th>สรุป</th>
+      <th>ขาย IK-IV</th><th>%กำไร IK</th><th>กำไร/ชิ้น</th><th>ราคาคู่แข่ง</th><th>ส่วนต่าง</th><th>สรุป</th>
+      <th>เว็บไซต์</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  `;
+}
+
+// ── ROUTER ──
+const pages = [
+  { id:'pg0', label:'ภาพรวม', build: buildPage1, after: null },
+  { id:'pg1', label:'เทียบรายละเอียด', build: buildPage2, after: renderComparePage },
+  { id:'pg2', label:'ตารางทั้งหมด', build: buildPage3, after: null },
+];
+
+const navTabs = document.getElementById('navTabs');
+const mainContent = document.getElementById('mainContent');
+let rendered = {};
+
+pages.forEach((pg,i) => {
+  const btn = document.createElement('button');
+  btn.className = 'tab-btn'+(i===0?' active':'');
+  btn.textContent = pg.label;
+  btn.onclick = () => showPage(i);
+  navTabs.appendChild(btn);
+  const div = document.createElement('div');
+  div.className = 'page'+(i===0?' active':'');
+  div.id = pg.id;
+  mainContent.appendChild(div);
+});
+
+function showPage(idx) {
+  navTabs.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  mainContent.querySelectorAll('.page').forEach((d,i)=>d.classList.toggle('active',i===idx));
+  renderPage(idx);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function renderPage(idx) {
+  const div = mainContent.querySelectorAll('.page')[idx];
+  div.innerHTML = pages[idx].build();
+  if (pages[idx].after) pages[idx].after();
+  rendered[idx] = true;
+}
+
+function renderAll() {
+  rendered = {};
+  pages.forEach((pg,i) => {
+    const div = mainContent.querySelectorAll('.page')[i];
+    if (div.classList.contains('active') || i===0) {
+      renderPage(i);
+    }
+  });
+}
+
+load();
 </script>
 </body>
 </html>
