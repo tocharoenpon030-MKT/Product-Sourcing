@@ -329,6 +329,10 @@ td.chk-col input[type=checkbox] { width: 17px; height: 17px; accent-color: var(-
 }
 .vs-unit { opacity: .75; }
 .vs-total { font-weight: 600; color: var(--text); }
+.year-hdr { font-weight: 700; font-size: 12px; letter-spacing: .3px; }
+.year-hdr-sub { font-weight: 600; font-size: 10px; opacity: .8; margin-top: 2px; letter-spacing: 0; text-transform: none; }
+.th-2568 { color: var(--old); }
+.th-2569 { color: var(--accent); }
 
 select.filter-select {
   font-family: var(--font); font-size: 13px; font-weight: 600;
@@ -356,7 +360,7 @@ select.filter-select {
 </div>
 <div class="data-banner">
   <span class="lbl">📊 ดูข้อมูลดิบ ใน Google Sheets</span>
-  <a href="https://docs.google.com/spreadsheets/d/1tBrWrp4Hz8GOUQzq4UZ-NXFPscajlsahs2fTi1CPa6o/edit?gid=1525790701#gid=1525790701" target="_blank" rel="noopener">
+  <a href="#" onclick="openSheetWithCode(event)">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
     เปิด Google Sheet
   </a>
@@ -378,6 +382,19 @@ const VOTE_GID = '2030973518';
 const VOTE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VOTE_GID}`;
 // วาง URL ของ Google Apps Script Web App ที่ deploy แล้วตรงนี้ (ดูวิธีติดตั้งจากที่แชท)
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzFJvv1ltnQNcEqe_3qtIuknF2vLd66UzwzHOabtEJYK0FMRIu5n8l8ip_8bHOebEKU/exec';
+
+const SHEET_EDIT_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${GID}#gid=${GID}`;
+const SHEET_ACCESS_CODE = '1294';
+function openSheetWithCode(e) {
+  e.preventDefault();
+  const code = window.prompt('กรุณาใส่รหัสผ่านเพื่อเปิด Google Sheet');
+  if (code === null) return;
+  if (code.trim() === SHEET_ACCESS_CODE) {
+    window.open(SHEET_EDIT_URL, '_blank', 'noopener');
+  } else {
+    alert('รหัสไม่ถูกต้อง');
+  }
+}
 
 const fmt = (n, dec=0) => (n===null||n===undefined||isNaN(n)) ? '–' : Number(n).toLocaleString('th-TH',{maximumFractionDigits:dec, minimumFractionDigits:dec});
 const fmtPct = (n) => (n===null||n===undefined||isNaN(n)) ? '–' : (n*100>=0?'+':'') + (n*100).toFixed(1) + '%';
@@ -688,11 +705,11 @@ function buildPage1() {
 
 // ── PAGE: โหวตสินค้าลงร้าน ── แสดงทุกรายการที่เปิดให้โหวต (ประเภท2 = "ใหม่" หรือ "ไม่สต็อคร้าน")
 // เรียงลำดับตามลำดับแถวในกูเกิ้ลชีทเสมอ (ไม่ขยับตามยอดขายหรือคะแนนโหวต)
-function voteStatCell(qty, totalProfit) {
+function voteStatCell(qty, totalProfit, yearCls) {
   const hasQty = qty !== null && qty !== undefined;
   const hasProfit = totalProfit !== null && totalProfit !== undefined;
   const perUnit = (hasQty && hasProfit && qty !== 0) ? totalProfit/qty : null;
-  return `<div class="vs-qty">${hasQty?fmt(qty,0):'–'}</div>
+  return `<div class="vs-qty ${yearCls}">${hasQty?fmt(qty,0):'–'}</div>
     <div class="vs-profit">${perUnit===null?'–':fmtMoney(perUnit,2)}<span class="vs-unit">/หน่วย</span><span class="vs-total">${hasProfit?fmtMoney(totalProfit,0):'–'}</span></div>`;
 }
 
@@ -735,8 +752,8 @@ function renderVotePage() {
       <td><span class="tag-pill ${tagCls}">${it.type2}</span></td>
       <td class="txt">${it.brand||'–'}</td>
       <td class="txt" style="min-width:180px">${it.desc}</td>
-      <td>${voteStatCell(it.qty2568, it.itemProfit)}</td>
-      <td>${voteStatCell(it.qty2569, it.itemProfit2569)}</td>
+      <td>${voteStatCell(it.qty2568, it.itemProfit, 'th-2568')}</td>
+      <td>${voteStatCell(it.qty2569, it.itemProfit2569, 'th-2569')}</td>
       <td style="font-weight:700;color:${tally>0?'var(--accent)':'var(--muted)'}">${fmt(tally,0)}</td>
     </tr>`;
   }).join('');
@@ -745,7 +762,9 @@ function renderVotePage() {
     <thead><tr>
       <th class="chk-col"></th>
       <th style="text-align:left">ประเภท1</th><th style="text-align:left">ประเภท2</th><th style="text-align:left">ยี่ห้อ</th><th style="text-align:left">รายละเอียด</th>
-      <th>จำนวนขาย 2568</th><th>จำนวนขาย 2569</th><th>คะแนนโหวต</th>
+      <th><div class="year-hdr th-2568">จำนวนขาย 2568</div><div class="year-hdr-sub th-2568">กำไร/หน่วย · กำไรรวม</div></th>
+      <th><div class="year-hdr th-2569">จำนวนขาย 2569</div><div class="year-hdr-sub th-2569">กำไร/หน่วย · กำไรรวม</div></th>
+      <th>คะแนนโหวต</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -1086,9 +1105,9 @@ function closeVoteModal() {
 
 // ── ROUTER ──
 const pages = [
+  { id:'pg2', label:'โหวตสินค้าลงร้าน', build: buildPageVote, after: renderVotePage },
   { id:'pg0', label:'ภาพรวม', build: buildPage1, after: null },
   { id:'pg1', label:'เทียบรายละเอียด', build: buildPage2, after: renderComparePage },
-  { id:'pg2', label:'โหวตสินค้าลงร้าน', build: buildPageVote, after: renderVotePage },
   { id:'pg3', label:'ตารางทั้งหมด', build: buildPage3, after: null },
 ];
 
