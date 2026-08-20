@@ -319,6 +319,17 @@ footer {
   font-size: 14px; font-weight: 700; cursor: pointer;
 }
 
+/* ── vote tab: select checkbox column + qty/profit stat cell ── */
+th.chk-col, td.chk-col { text-align: center !important; padding-left: 6px; padding-right: 6px; }
+td.chk-col input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+.vs-qty { font-weight: 700; font-size: 14px; color: var(--text); }
+.vs-profit {
+  display: flex; align-items: baseline; justify-content: flex-end; gap: 5px;
+  font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap;
+}
+.vs-unit { opacity: .75; }
+.vs-total { font-weight: 600; color: var(--text); }
+
 select.filter-select {
   font-family: var(--font); font-size: 13px; font-weight: 600;
   border: 1.5px solid var(--border); border-radius: 20px;
@@ -417,27 +428,28 @@ function parseSheet(csvText) {
       groupProfit: numClean(r[5]),
       itemProfit: numClean(r[6]),
       qty2568: numClean(r[7]),
-      qty2569: numClean(r[8]),
-      cost: numClean(r[9]),
-      purchasePrice: numClean(r[10]),
-      purchaseProfitPct: numClean(r[11]),
-      purchaseProfitPerUnit: numClean(r[12]),
-      purchaseCompetitorPrice: numClean(r[13]),
-      purchaseDiff: numClean(r[14]),
-      purchaseSummary: (r[15]||'').trim(),
-      ivSellPrice: numClean(r[16]),
-      ivProfitPct: numClean(r[17]),
-      ivProfitPerUnit: numClean(r[18]),
-      ivCompetitorPrice: numClean(r[19]),
-      ivDiff: numClean(r[20]),
-      ivSummary: (r[21]||'').trim(),
-      ikSellPrice: numClean(r[22]),
-      ikProfitPct: numClean(r[23]),
-      ikProfitPerUnit: numClean(r[24]),
-      ikCompetitorPrice: numClean(r[25]),
-      ikDiff: numClean(r[26]),
-      ikSummary: (r[27]||'').trim(),
-      website: (r[28]||'').trim(),
+      itemProfit2569: numClean(r[8]),
+      qty2569: numClean(r[9]),
+      cost: numClean(r[10]),
+      purchasePrice: numClean(r[11]),
+      purchaseProfitPct: numClean(r[12]),
+      purchaseProfitPerUnit: numClean(r[13]),
+      purchaseCompetitorPrice: numClean(r[14]),
+      purchaseDiff: numClean(r[15]),
+      purchaseSummary: (r[16]||'').trim(),
+      ivSellPrice: numClean(r[17]),
+      ivProfitPct: numClean(r[18]),
+      ivProfitPerUnit: numClean(r[19]),
+      ivCompetitorPrice: numClean(r[20]),
+      ivDiff: numClean(r[21]),
+      ivSummary: (r[22]||'').trim(),
+      ikSellPrice: numClean(r[23]),
+      ikProfitPct: numClean(r[24]),
+      ikProfitPerUnit: numClean(r[25]),
+      ikCompetitorPrice: numClean(r[26]),
+      ikDiff: numClean(r[27]),
+      ikSummary: (r[28]||'').trim(),
+      website: (r[29]||'').trim(),
     };
     items.push(item);
   }
@@ -650,8 +662,6 @@ function buildPage1() {
     <div class="stat-card hl"><div class="label">ยอดโหวตลงร้านรวม</div><div class="value">${fmt(totalVotes,0)}</div><div class="sub">โหวต จาก ${votedCandidates}/${voteCandidates?voteCandidates.length:0} รายการที่เปิดโหวต</div></div>
   `;
 
-  const voteSection = buildVoteSummarySection();
-
   const groupBlocks = groups.map(g => {
     const pairCount = g.pairs.filter(p => p.old && p.new).length;
     const standaloneCount = g.pairs.filter(p => p.standalone).length;
@@ -671,43 +681,75 @@ function buildPage1() {
   <div class="page-title">ภาพรวม เทียบราคา-กำไร</div>
   <div class="page-sub">สรุปกำไรและสัดส่วนรายการสินค้า แยกตามกลุ่ม</div>
   <div class="stat-grid">${statCards}</div>
-  ${voteSection}
   <div class="section-title">สัดส่วนกำไรแต่ละกลุ่ม</div>
   ${groupBlocks}
   `;
 }
 
-// สรุปยอดโหวตลงร้าน — แสดงทุกรายการที่เปิดให้โหวต (ประเภท2 = "ใหม่" หรือ "ไม่สต็อคร้าน")
-// พร้อมจำนวนขายและคะแนนโหวต เรียงจากโหวตมากไปน้อย
-function buildVoteSummarySection() {
-  if (!voteCandidates || !voteCandidates.length) return '';
-  const ranked = voteCandidates
-    .map(c => ({ item: c, votes: voteTotals[voteKey(c)] || 0 }))
-    .sort((a,b) => b.votes - a.votes || (b.item.qty2568||0) - (a.item.qty2568||0));
+// ── PAGE: โหวตสินค้าลงร้าน ── แสดงทุกรายการที่เปิดให้โหวต (ประเภท2 = "ใหม่" หรือ "ไม่สต็อคร้าน")
+// เรียงลำดับตามลำดับแถวในกูเกิ้ลชีทเสมอ (ไม่ขยับตามยอดขายหรือคะแนนโหวต)
+function voteStatCell(qty, totalProfit) {
+  const hasQty = qty !== null && qty !== undefined;
+  const hasProfit = totalProfit !== null && totalProfit !== undefined;
+  const perUnit = (hasQty && hasProfit && qty !== 0) ? totalProfit/qty : null;
+  return `<div class="vs-qty">${hasQty?fmt(qty,0):'–'}</div>
+    <div class="vs-profit">${perUnit===null?'–':fmtMoney(perUnit,2)}<span class="vs-unit">/หน่วย</span><span class="vs-total">${hasProfit?fmtMoney(totalProfit,0):'–'}</span></div>`;
+}
 
-  const rows = ranked.map(r => {
-    const it = r.item;
+function buildPageVote() {
+  if (!groups) return '';
+  const filterOptions = groups.map(g=>`<option value="${g.name}">${g.name}</option>`).join('');
+  const sel = `<select class="filter-select" id="voteGrpFilter" onchange="renderVotePage()">
+    <option value="__all__">ทุกกลุ่ม</option>${filterOptions}
+  </select>`;
+  return `
+  <div class="page-title">โหวตสินค้าลงร้าน</div>
+  <div class="page-sub">รายการสินค้าทั้งหมดที่เปิดให้โหวต (เรียงตามลำดับในกูเกิ้ลชีท) — ติ๊กช่องด้านหน้าเพื่อเลือกรายการที่จะนำเข้าร้าน แล้วกดบันทึกโหวตด้านล่าง</div>
+  <div style="margin-bottom:14px">${sel}</div>
+  <div class="tbl-wrap" id="voteTblWrap"></div>
+  <div style="height:64px"></div>
+  <div class="vote-select-bar" id="voteSelectBar">
+    <span id="voteSelectCount">ยังไม่ได้เลือกรายการโหวต</span>
+    <button class="vote-select-btn" id="voteSelectSubmitBtn" onclick="openVoteConfirm()" disabled>บันทึกโหวต</button>
+  </div>
+  `;
+}
+
+function renderVotePage() {
+  const wrap = document.getElementById('voteTblWrap');
+  if (!wrap || !voteCandidates) return;
+  const selEl = document.getElementById('voteGrpFilter');
+  const val = selEl ? selEl.value : '__all__';
+
+  // คงลำดับเดิมตามกูเกิ้ลชีทเสมอ — ไม่ sort ตามยอดโหวตหรือยอดขาย
+  const list = voteCandidates.filter(it => val === '__all__' || it.type1 === val);
+
+  const rows = list.map(it => {
+    const k = voteKey(it);
+    const tally = voteTotals[k] || 0;
+    const checked = !!selectedVotes[k];
     const tagCls = it.type2 === 'ใหม่' ? 'new' : 'standalone';
     return `<tr>
-      <td class="txt sticky-col">${it.type1||'–'}</td>
+      <td class="chk-col"><input type="checkbox" data-key="${escapeAttr(k)}" ${checked?'checked':''} onchange="toggleVoteInline(this)"></td>
+      <td class="txt">${it.type1||'–'}</td>
       <td><span class="tag-pill ${tagCls}">${it.type2}</span></td>
       <td class="txt">${it.brand||'–'}</td>
-      <td class="txt" style="min-width:200px">${it.desc}</td>
-      <td>${fmt(it.qty2568,0)}</td>
-      <td>${fmt(it.qty2569,0)}</td>
-      <td style="font-weight:700;color:${r.votes>0?'var(--accent)':'var(--muted)'}">${fmt(r.votes,0)}</td>
+      <td class="txt" style="min-width:180px">${it.desc}</td>
+      <td>${voteStatCell(it.qty2568, it.itemProfit)}</td>
+      <td>${voteStatCell(it.qty2569, it.itemProfit2569)}</td>
+      <td style="font-weight:700;color:${tally>0?'var(--accent)':'var(--muted)'}">${fmt(tally,0)}</td>
     </tr>`;
   }).join('');
 
-  return `
-  <div class="section-title">โหวตลงร้าน — สินค้าที่เปิดให้โหวตทั้งหมด</div>
-  <div class="tbl-wrap"><table>
+  wrap.innerHTML = `<table>
     <thead><tr>
-      <th class="sticky-col">ประเภท1</th><th>ประเภท2</th><th>ยี่ห้อ</th><th>รายละเอียด</th>
+      <th class="chk-col"></th>
+      <th style="text-align:left">ประเภท1</th><th style="text-align:left">ประเภท2</th><th style="text-align:left">ยี่ห้อ</th><th style="text-align:left">รายละเอียด</th>
       <th>จำนวนขาย 2568</th><th>จำนวนขาย 2569</th><th>คะแนนโหวต</th>
     </tr></thead>
     <tbody>${rows}</tbody>
-  </table></div>`;
+  </table>`;
+  updateCompareSelectionBar();
 }
 
 // ── PAGE 2: เทียบรายละเอียด (cards old vs new) ──
@@ -780,19 +822,6 @@ function priceStepLine(label, sellPrice, cost, summary, diffPct, stepClass) {
 
 function escapeAttr(s) { return String(s==null?'':s).replace(/"/g,'&quot;'); }
 
-// ช่องติ๊กโหวต แสดงเฉพาะรายการที่โหวตได้ (ประเภท2 = "ใหม่" หรือ "ไม่สต็อคร้าน")
-function buildVoteCheckbox(it) {
-  if (!it || !isVotableType2(it.type2)) return '';
-  const k = voteKey(it);
-  const tally = voteTotals[k] || 0;
-  const checked = !!selectedVotes[k];
-  return `<label class="vote-check-row">
-    <input type="checkbox" data-key="${escapeAttr(k)}" ${checked?'checked':''} onchange="toggleVoteInline(this)">
-    <span class="vote-check-label">โหวตให้นำเข้าร้าน</span>
-    <span class="vote-tally-mini">${tally} โหวตแล้ว</span>
-  </label>`;
-}
-
 function buildCompareCard(pair, idx) {
   const old = pair.old, neu = pair.new;
   const title = (old && old.desc) || (neu && neu.desc) || `รายการที่ ${idx+1}`;
@@ -803,7 +832,6 @@ function buildCompareCard(pair, idx) {
       <div class="kv-line"><span class="kv-label">จำนวนขาย 2568</span><span class="kv-val">${fmt(it.qty2568,0)}</span></div>
       <div class="kv-line"><span class="kv-label">จำนวนขาย 2569</span><span class="kv-val">${fmt(it.qty2569,0)}</span></div>
     ` : '';
-    const voteHtml = tagClass === 'new' ? buildVoteCheckbox(it) : '';
     return `<div class="compare-col ${tagClass==='old'?'old':''}">
       <div class="compare-tag ${tagClass}">${tagLabel}</div>
       <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
@@ -815,7 +843,6 @@ function buildCompareCard(pair, idx) {
       ${priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik')}
       ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
       ${qtyLines}
-      ${voteHtml}
     </div>`;
   }
 
@@ -856,7 +883,6 @@ function buildStandaloneCard(pair, idx) {
         ${hasIv ? priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv') : ''}
         ${hasIk ? priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik') : ''}
         ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
-        ${buildVoteCheckbox(it)}
       </div>
     </div>
     <div class="verdict-bar">
@@ -875,14 +901,9 @@ function buildPage2() {
 
   return `
   <div class="page-title">เทียบรายละเอียดสินค้า</div>
-  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (รายการที่ยังไม่มีคู่เทียบจะแสดงเป็นการ์ดเดี่ยว) ติ๊ก "โหวตให้นำเข้าร้าน" ที่รายการที่ต้องการ แล้วกดบันทึกโหวตด้านล่าง</div>
+  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (รายการที่ยังไม่มีคู่เทียบจะแสดงเป็นการ์ดเดี่ยว)</div>
   <div style="margin-bottom:14px">${sel}</div>
   <div class="compare-wrap" id="compareWrap"></div>
-  <div style="height:64px"></div>
-  <div class="vote-select-bar" id="voteSelectBar">
-    <span id="voteSelectCount">ยังไม่ได้เลือกรายการโหวต</span>
-    <button class="vote-select-btn" id="voteSelectSubmitBtn" onclick="openVoteConfirm()" disabled>บันทึกโหวต</button>
-  </div>
   `;
 }
 
@@ -900,7 +921,6 @@ function renderComparePage() {
     });
   });
   wrap.innerHTML = html;
-  updateCompareSelectionBar();
 }
 
 function onFilterChange() { renderComparePage(); }
@@ -1030,7 +1050,7 @@ function submitVoteBatch() {
       selectedVotes = {};
       return reloadVotesOnly().then(() => {
         showVoteModal({ name, branch, timestamp: nowIso, selected, notSelected });
-        renderComparePage();
+        renderVotePage();
       });
     })
     .catch(e => {
@@ -1068,7 +1088,8 @@ function closeVoteModal() {
 const pages = [
   { id:'pg0', label:'ภาพรวม', build: buildPage1, after: null },
   { id:'pg1', label:'เทียบรายละเอียด', build: buildPage2, after: renderComparePage },
-  { id:'pg2', label:'ตารางทั้งหมด', build: buildPage3, after: null },
+  { id:'pg2', label:'โหวตสินค้าลงร้าน', build: buildPageVote, after: renderVotePage },
+  { id:'pg3', label:'ตารางทั้งหมด', build: buildPage3, after: null },
 ];
 
 const navTabs = document.getElementById('navTabs');
