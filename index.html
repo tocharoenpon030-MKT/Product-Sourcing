@@ -135,6 +135,7 @@ main { padding: 16px; max-width: 980px; margin: 0 auto; }
   border-bottom: 1.5px solid var(--border);
 }
 .compare-row { display: grid; grid-template-columns: 1fr 1fr; }
+.compare-row-single { grid-template-columns: 1fr; }
 .compare-col { padding: 12px 14px; }
 .compare-col.old { border-right: 1.5px solid var(--border); }
 .compare-tag {
@@ -144,6 +145,7 @@ main { padding: 16px; max-width: 980px; margin: 0 auto; }
 }
 .compare-tag.old { background: rgba(99,102,241,.12); color: var(--old); }
 .compare-tag.new { background: rgba(224,123,30,.12); color: var(--new); }
+.compare-tag.standalone { background: rgba(107,114,128,.14); color: var(--muted); }
 .compare-brand { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
 .compare-desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
 .kv-line { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; border-bottom: 1px dashed var(--border); }
@@ -195,9 +197,11 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:nth-child(even) td { background: rgba(0,0,0,.02); }
 tbody tr.row-old td { background: rgba(99,102,241,.05); }
 tbody tr.row-new td { background: rgba(224,123,30,.05); }
+tbody tr.row-standalone td { background: rgba(107,114,128,.06); }
 .tag-pill { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 20px; display: inline-block; }
 .tag-pill.old { background: rgba(99,102,241,.12); color: var(--old); }
 .tag-pill.new { background: rgba(224,123,30,.12); color: var(--new); }
+.tag-pill.standalone { background: rgba(107,114,128,.14); color: var(--muted); }
 .cmp-cheap { color: var(--green); font-weight: 700; }
 .cmp-exp   { color: var(--red); font-weight: 700; }
 .cmp-eq    { color: var(--muted); }
@@ -214,6 +218,7 @@ tbody tr.row-new td { background: rgba(224,123,30,.05); }
 .verdict-badge.good { background: rgba(22,163,74,.12); color: var(--green); }
 .verdict-badge.warn { background: rgba(217,119,6,.12); color: var(--yellow); }
 .verdict-badge.bad  { background: rgba(220,38,38,.10); color: var(--red); }
+.verdict-badge.info { background: rgba(107,114,128,.12); color: var(--muted); }
 .verdict-detail { font-size: 12px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
 .verdict-detail b { color: var(--text); font-family: var(--mono); }
 
@@ -232,6 +237,82 @@ footer {
   text-align: center; padding: 20px 16px;
   font-size: 13px; color: var(--muted);
   border-top: 1px solid var(--border); margin-top: 28px;
+}
+
+/* ── vote page ── */
+.vote-form-bar {
+  position: sticky; top: 52px; z-index: 50;
+  background: rgba(255,255,255,0.97); backdrop-filter: blur(10px);
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.vote-form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.vote-input {
+  flex: 1; min-width: 130px; font-family: var(--font); font-size: 14px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; color: var(--text); background: var(--surface);
+}
+.vote-input:focus { outline: none; border-color: var(--accent); }
+.vote-submit-btn {
+  width: 100%; font-family: var(--font); font-size: 15px; font-weight: 700;
+  background: var(--accent); color: #fff; border: none; border-radius: 8px;
+  padding: 11px; cursor: pointer; transition: opacity .15s;
+}
+.vote-submit-btn:disabled { opacity: .5; cursor: not-allowed; }
+.vote-count-hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; }
+
+.vote-item-card {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 11px 13px; margin-bottom: 8px;
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+.vote-item-card.checked { border-color: var(--accent); background: rgba(224,123,30,.06); }
+.vote-item-card input[type=checkbox] { width: 19px; height: 19px; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+.vote-item-body { flex: 1; min-width: 0; }
+.vote-item-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.vote-item-desc { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.vote-item-meta { display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap; }
+.vote-tally {
+  font-size: 11.5px; font-weight: 700; color: var(--accent);
+  background: rgba(224,123,30,.12); padding: 2px 8px; border-radius: 20px;
+}
+
+/* ── modal ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(17,24,39,.5); align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: #fff; border-radius: 16px; max-width: 420px; width: 100%;
+  max-height: 85vh; overflow-y: auto; padding: 22px 20px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+.modal-icon { font-size: 38px; text-align: center; margin-bottom: 8px; }
+.modal-title { font-size: 18px; font-weight: 700; text-align: center; color: var(--text); margin-bottom: 4px; }
+.modal-sub { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 16px; }
+.modal-stat-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.modal-stat {
+  flex: 1; text-align: center; border-radius: 10px; padding: 10px 6px;
+}
+.modal-stat.yes { background: rgba(22,163,74,.1); }
+.modal-stat.no  { background: rgba(107,114,128,.1); }
+.modal-stat .n { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+.modal-stat.yes .n { color: var(--green); }
+.modal-stat.no .n { color: var(--muted); }
+.modal-stat .lbl { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.modal-meta { font-size: 12.5px; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 10px; margin-bottom: 10px; }
+.modal-meta b { color: var(--text); }
+.modal-list-title { font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
+.modal-list-item { font-size: 13px; padding: 5px 0; border-bottom: 1px dashed var(--border); display: flex; gap: 6px; }
+.modal-list-item:last-child { border-bottom: none; }
+.modal-close-btn {
+  width: 100%; margin-top: 14px; background: var(--surface2); color: var(--text);
+  border: none; border-radius: 8px; padding: 10px; font-family: var(--font);
+  font-size: 14px; font-weight: 700; cursor: pointer;
 }
 
 select.filter-select {
@@ -268,10 +349,20 @@ select.filter-select {
 <main id="mainContent"></main>
 <footer id="footerEl">กำลังโหลดข้อมูล…</footer>
 
+<div class="modal-overlay" id="voteModal">
+  <div class="modal-box" id="voteModalBox"></div>
+</div>
+
 <script>
 const SHEET_ID = '1tBrWrp4Hz8GOUQzq4UZ-NXFPscajlsahs2fTi1CPa6o';
 const GID = '1525790701';
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+
+// ── voting sheet ("ผลโหวต" tab) ──
+const VOTE_GID = '2030973518';
+const VOTE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VOTE_GID}`;
+// วาง URL ของ Google Apps Script Web App ที่ deploy แล้วตรงนี้ (ดูวิธีติดตั้งจากที่แชท)
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzFJvv1ltnQNcEqe_3qtIuknF2vLd66UzwzHOabtEJYK0FMRIu5n8l8ip_8bHOebEKU/exec';
 
 const fmt = (n, dec=0) => (n===null||n===undefined||isNaN(n)) ? '–' : Number(n).toLocaleString('th-TH',{maximumFractionDigits:dec, minimumFractionDigits:dec});
 const fmtPct = (n) => (n===null||n===undefined||isNaN(n)) ? '–' : (n*100>=0?'+':'') + (n*100).toFixed(1) + '%';
@@ -350,6 +441,9 @@ function parseSheet(csvText) {
 }
 
 // ── group items into pairs (old "ขายอยู่" + new "ใหม่") under each ประเภท1 ──
+// Rows whose ประเภท2 is neither "ขายอยู่" nor "ใหม่" (e.g. "ไม่สต็อคร้าน") have no
+// counterpart to compare against — they're kept as standalone reference items so
+// their data still shows up instead of being silently dropped.
 function buildGroups(items) {
   const order = [];
   const map = {};
@@ -371,8 +465,12 @@ function buildGroups(items) {
       if (cur.type2 === 'ขายอยู่' && next && next.type2 === 'ใหม่') {
         g.pairs.push({ old: cur, new: next });
         i += 2;
-      } else {
+      } else if (cur.type2 === 'ขายอยู่' || cur.type2 === 'ใหม่') {
         g.pairs.push({ old: cur.type2==='ขายอยู่'?cur:null, new: cur.type2==='ใหม่'?cur:null });
+        i += 1;
+      } else {
+        // any other ประเภท2 label (e.g. "ไม่สต็อคร้าน") -> standalone, no comparison
+        g.pairs.push({ standalone: cur });
         i += 1;
       }
     }
@@ -382,15 +480,65 @@ function buildGroups(items) {
 
 let allItems = null;
 let groups = null;
+let voteCandidates = null;  // unique "ใหม่" items available to vote on
+let voteRows = null;        // raw rows already recorded in the ผลโหวต sheet
+let voteTotals = {};        // code -> vote count
+let selectedVotes = {};     // code -> item, currently ticked on the vote page
+
+// vote sheet columns: A ประเภท1, B ประเภท2, C ยี่ห้อ, D รหัสสินค้า, E รายละเอียด,
+// F ผลโหวต (1 ต่อแถว), G โดย (ชื่อ+สาขา), H ประทับเวลา
+function parseVoteSheet(csvText) {
+  const lines = csvText.replace(/\r/g,'').split('\n').filter(l => l.trim().length>0);
+  const rows = lines.map(parseCSVLine);
+  const items = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const type1 = (r[0]||'').trim();
+    const desc = (r[4]||'').trim();
+    if (!type1 && !desc) continue;
+    items.push({
+      type1, type2: (r[1]||'').trim(), brand: (r[2]||'').trim(),
+      code: (r[3]||'').trim(), desc,
+      voteVal: numClean(r[5]), by: (r[6]||'').trim(), ts: (r[7]||'').trim(),
+    });
+  }
+  return items;
+}
+
+function voteKey(it) { return (it.code && it.code.trim()) ? it.code.trim() : `${it.brand}__${it.desc}`; }
+
+function buildVoteCandidates(items) {
+  const map = {}; const list = [];
+  items.filter(it => it.type2 === 'ใหม่').forEach(it => {
+    const k = voteKey(it);
+    if (!map[k]) { map[k] = true; list.push(it); }
+  });
+  return list;
+}
+
+function buildVoteTotals(rows) {
+  const totals = {};
+  rows.forEach(r => {
+    if (r.voteVal === null || r.voteVal === undefined || r.voteVal === 0) return;
+    const k = voteKey(r);
+    totals[k] = (totals[k]||0) + r.voteVal;
+  });
+  return totals;
+}
 
 function load() {
-  fetch(CSV_URL)
-    .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
-    .then(csv => {
+  Promise.all([
+    fetch(CSV_URL).then(r => { if(!r.ok) throw new Error('HTTP '+r.status+' (ชีทข้อมูลราคา)'); return r.text(); }),
+    fetch(VOTE_CSV_URL).then(r => { if(!r.ok) throw new Error('HTTP '+r.status+' (ชีทโหวต)'); return r.text(); }).catch(()=>''),
+  ])
+    .then(([csv, voteCsv]) => {
       try {
         allItems = parseSheet(csv);
         if (!allItems.length) throw new Error('อ่านข้อมูลไม่พบรายการสินค้า');
         groups = buildGroups(allItems);
+        voteCandidates = buildVoteCandidates(allItems);
+        voteRows = voteCsv ? parseVoteSheet(voteCsv) : [];
+        voteTotals = buildVoteTotals(voteRows);
         document.getElementById('footerEl').textContent = 'ข้อมูล ณ วันที่ 22 มิ.ย. 2569  |  หน่วย: บาท';
         renderAll();
       } catch(e) {
@@ -398,6 +546,12 @@ function load() {
       }
     })
     .catch(e => showError('เชื่อมต่อ Google Sheets ไม่ได้: ' + e.message));
+}
+
+function reloadVotesOnly() {
+  return fetch(VOTE_CSV_URL)
+    .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(csv => { voteRows = parseVoteSheet(csv); voteTotals = buildVoteTotals(voteRows); });
 }
 
 function showError(msg) {
@@ -437,10 +591,13 @@ function buildPieSVG(slices, size=140) {
 
 function buildGroupPie(g) {
   // slices = each item's itemProfit (G), remainder = groupProfit(F) - sum(items)
+  // includes both compared items (old side) and standalone items (no pair)
   const itemsWithProfit = [];
   g.pairs.forEach(p => {
     if (p.old && p.old.itemProfit !== null && p.old.itemProfit !== undefined) {
       itemsWithProfit.push({ name: p.old.desc, value: p.old.itemProfit });
+    } else if (p.standalone && p.standalone.itemProfit !== null && p.standalone.itemProfit !== undefined) {
+      itemsWithProfit.push({ name: p.standalone.desc, value: p.standalone.itemProfit });
     }
   });
   const sumItems = itemsWithProfit.reduce((s,x)=>s+x.value,0);
@@ -475,20 +632,28 @@ function buildGroupPie(g) {
 function buildPage1() {
   if (!groups) return '';
   const totalItems = allItems.length;
+  const totalVotes = voteRows ? voteRows.filter(r=>r.voteVal).length : 0;
+  const votedCandidates = voteCandidates ? voteCandidates.filter(c => voteTotals[voteKey(c)]).length : 0;
 
   const statCards = `
     <div class="stat-card"><div class="label">จำนวนกลุ่มสินค้า</div><div class="value">${groups.length}</div><div class="sub">กลุ่ม</div></div>
-    <div class="stat-card"><div class="label">จำนวนรายการทั้งหมด</div><div class="value">${totalItems}</div><div class="sub">รายการ (ขายอยู่+ใหม่)</div></div>
+    <div class="stat-card"><div class="label">จำนวนรายการทั้งหมด</div><div class="value">${totalItems}</div><div class="sub">รายการ (ขายอยู่+ใหม่+เดี่ยว)</div></div>
+    <div class="stat-card hl"><div class="label">ยอดโหวตลงร้านรวม</div><div class="value">${fmt(totalVotes,0)}</div><div class="sub">โหวต จาก ${votedCandidates}/${voteCandidates?voteCandidates.length:0} รายการ</div></div>
   `;
 
+  const voteSection = buildVoteSummarySection();
+
   const groupBlocks = groups.map(g => {
-    const pairCount = g.pairs.length;
+    const pairCount = g.pairs.filter(p => p.old && p.new).length;
+    const standaloneCount = g.pairs.filter(p => p.standalone).length;
+    const noteText = `สัดส่วนกำไรเฉพาะของแต่ละรายการเทียบกับกำไรรวมทั้งกลุ่ม — มี ${pairCount} คู่เปรียบเทียบ`
+      + (standaloneCount ? ` และ ${standaloneCount} รายการเดี่ยว (ยังไม่มีสินค้าใหม่ให้เทียบ)` : '');
     return `<div class="group-block">
       <div class="group-head">
         <div class="group-name">${g.name}</div>
         <div class="group-total">กำไรกลุ่ม (ปี 2568): ${fmtMoney(g.groupProfit,0)} บาท</div>
       </div>
-      <div class="note">สัดส่วนกำไรเฉพาะของแต่ละรายการ (ขายอยู่) เทียบกับกำไรรวมทั้งกลุ่ม — มี ${pairCount} คู่เปรียบเทียบ</div>
+      <div class="note">${noteText}</div>
       ${buildGroupPie(g)}
     </div>`;
   }).join('');
@@ -497,9 +662,32 @@ function buildPage1() {
   <div class="page-title">ภาพรวม เทียบราคา-กำไร</div>
   <div class="page-sub">สรุปกำไรและสัดส่วนรายการสินค้า แยกตามกลุ่ม</div>
   <div class="stat-grid">${statCards}</div>
+  ${voteSection}
   <div class="section-title">สัดส่วนกำไรแต่ละกลุ่ม</div>
   ${groupBlocks}
   `;
+}
+
+// สรุปยอดโหวตลงร้าน (top รายการที่ได้คะแนนมากสุด) แสดงในหน้าภาพรวม
+function buildVoteSummarySection() {
+  if (!voteCandidates || !voteCandidates.length) return '';
+  const ranked = voteCandidates
+    .map(c => ({ item: c, votes: voteTotals[voteKey(c)] || 0 }))
+    .sort((a,b) => b.votes - a.votes)
+    .slice(0, 5);
+  if (!ranked.length) return '';
+
+  const rows = ranked.map(r => `
+    <div class="kv-line">
+      <span class="kv-label" style="max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.item.brand?r.item.brand+' · ':''}${r.item.desc}</span>
+      <span class="kv-val" style="color:${r.votes>0?'var(--accent)':'var(--muted)'}">${r.votes} โหวต</span>
+    </div>`).join('');
+
+  return `
+  <div class="section-title">โหวตลงร้าน (5 อันดับแรก)</div>
+  <div class="group-block">
+    ${rows}
+  </div>`;
 }
 
 // ── PAGE 2: เทียบรายละเอียด (cards old vs new) ──
@@ -556,23 +744,23 @@ function buildVerdict(old, neu) {
   </div>`;
 }
 
+function priceStepLine(label, sellPrice, cost, summary, diffPct, stepClass) {
+  const profit = (sellPrice !== null && cost !== null) ? (sellPrice - cost) : null;
+  return `<div class="price-step ${stepClass}">
+    <div class="price-step-top">
+      <span class="kv-label">${label}</span>
+      <span class="kv-val">${fmtMoney(sellPrice)}</span>
+    </div>
+    <div class="price-step-sub">
+      <span>กำไร: <b>${profit===null?'–':fmtMoney(profit,2)+' บ.'}</b></span>
+      ${summaryTag(summary, diffPct)}
+    </div>
+  </div>`;
+}
+
 function buildCompareCard(pair, idx) {
   const old = pair.old, neu = pair.new;
   const title = (old && old.desc) || (neu && neu.desc) || `รายการที่ ${idx+1}`;
-
-  function priceStepLine(label, sellPrice, cost, summary, diffPct, stepClass) {
-    const profit = (sellPrice !== null && cost !== null) ? (sellPrice - cost) : null;
-    return `<div class="price-step ${stepClass}">
-      <div class="price-step-top">
-        <span class="kv-label">${label}</span>
-        <span class="kv-val">${fmtMoney(sellPrice)}</span>
-      </div>
-      <div class="price-step-sub">
-        <span>กำไร: <b>${profit===null?'–':fmtMoney(profit,2)+' บ.'}</b></span>
-        ${summaryTag(summary, diffPct)}
-      </div>
-    </div>`;
-  }
 
   function colHtml(it, tagClass, tagLabel) {
     if (!it) return `<div class="compare-col"><div class="compare-tag ${tagClass}">${tagLabel}</div><div style="color:var(--muted);font-size:13px">ไม่มีข้อมูล</div></div>`;
@@ -606,6 +794,40 @@ function buildCompareCard(pair, idx) {
   </div>`;
 }
 
+// standalone item = a row whose ประเภท2 is neither "ขายอยู่" nor "ใหม่" (e.g. "ไม่สต็อคร้าน")
+// so there's no pair to build a two-column comparison from. Shown as a single-column
+// reference card instead of being dropped.
+function buildStandaloneCard(pair, idx) {
+  const it = pair.standalone;
+  const title = it.desc || `รายการที่ ${idx+1}`;
+  const hasPurchase = it.purchasePrice !== null && it.purchasePrice !== undefined;
+  const hasIv = it.ivSellPrice !== null && it.ivSellPrice !== undefined;
+  const hasIk = it.ikSellPrice !== null && it.ikSellPrice !== undefined;
+
+  return `<div class="compare-card">
+    <div class="compare-card-head">${title}</div>
+    <div class="compare-row compare-row-single">
+      <div class="compare-col">
+        <div class="compare-tag standalone">${it.type2 || 'ไม่มีคู่เทียบ'}</div>
+        <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
+        <div class="compare-desc">${it.desc}</div>
+        <div class="kv-line"><span class="kv-label">ต้นทุน</span><span class="kv-val">${fmtMoney(it.cost)}</span></div>
+        <div class="kv-line"><span class="kv-label">กำไรเฉพาะรหัส (ปี 2568)</span><span class="kv-val">${fmtMoney(it.itemProfit,2)}</span></div>
+        <div class="kv-line"><span class="kv-label">จำนวนขาย 2568</span><span class="kv-val">${fmt(it.qty2568,0)}</span></div>
+        <div class="kv-line"><span class="kv-label">จำนวนขาย 2569</span><span class="kv-val">${fmt(it.qty2569,0)}</span></div>
+        ${hasPurchase ? priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseSummary, it.purchaseDiff, 'step-purchase') : ''}
+        ${hasIv ? priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv') : ''}
+        ${hasIk ? priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik') : ''}
+        ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
+      </div>
+    </div>
+    <div class="verdict-bar">
+      <span class="verdict-badge info">ℹ️ รายการเดี่ยว</span>
+      <div class="verdict-detail"><span>ยังไม่มีสินค้า "ใหม่" ให้เทียบสำหรับรายการนี้</span></div>
+    </div>
+  </div>`;
+}
+
 function buildPage2() {
   if (!groups) return '';
   const filterOptions = groups.map(g=>`<option value="${g.name}">${g.name}</option>`).join('');
@@ -615,7 +837,7 @@ function buildPage2() {
 
   return `
   <div class="page-title">เทียบรายละเอียดสินค้า</div>
-  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง</div>
+  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (รายการที่ยังไม่มีคู่เทียบจะแสดงเป็นการ์ดเดี่ยว)</div>
   <div style="margin-bottom:14px">${sel}</div>
   <div class="compare-wrap" id="compareWrap"></div>
   `;
@@ -630,7 +852,9 @@ function renderComparePage() {
   groups.forEach(g => {
     if (val !== '__all__' && g.name !== val) return;
     html += `<div class="section-title">${g.name}</div>`;
-    g.pairs.forEach((p,i) => { html += buildCompareCard(p,i); });
+    g.pairs.forEach((p,i) => {
+      html += p.standalone ? buildStandaloneCard(p,i) : buildCompareCard(p,i);
+    });
   });
   wrap.innerHTML = html;
 }
@@ -641,8 +865,10 @@ function onFilterChange() { renderComparePage(); }
 function buildPage3() {
   if (!allItems) return '';
   const rows = allItems.map(it => {
-    const rowCls = it.type2==='ขายอยู่' ? 'row-old' : 'row-new';
-    const tagCls = it.type2==='ขายอยู่' ? 'old' : 'new';
+    const isOld = it.type2==='ขายอยู่';
+    const isNew = it.type2==='ใหม่';
+    const rowCls = isOld ? 'row-old' : (isNew ? 'row-new' : 'row-standalone');
+    const tagCls = isOld ? 'old' : (isNew ? 'new' : 'standalone');
     return `<tr class="${rowCls}">
       <td class="txt sticky-col">${it.type1}</td>
       <td><span class="tag-pill ${tagCls}">${it.type2}</span></td>
@@ -691,11 +917,139 @@ function buildPage3() {
   `;
 }
 
+// ── PAGE 4: โหวตลงร้าน ──
+function buildPage4() {
+  if (!voteCandidates) return '';
+  return `
+  <div class="page-title">โหวตลงร้าน</div>
+  <div class="page-sub">ติ๊กเลือกสินค้าใหม่ที่อยากให้นำเข้าร้าน ใส่ชื่อและสาขาแล้วกดยืนยัน โหวตได้หลายรายการในครั้งเดียว</div>
+
+  <div class="vote-form-bar">
+    <div class="vote-form-row">
+      <input type="text" class="vote-input" id="voterName" placeholder="ชื่อ-นามสกุล">
+      <input type="text" class="vote-input" id="voterBranch" placeholder="สาขา">
+    </div>
+    <button class="vote-submit-btn" id="voteSubmitBtn" onclick="submitVote()">ยืนยันโหวต</button>
+    <div class="vote-count-hint" id="voteCountHint">ยังไม่ได้เลือกรายการ</div>
+  </div>
+
+  <div id="voteItemsWrap"></div>
+  `;
+}
+
+function renderVoteItems() {
+  const wrap = document.getElementById('voteItemsWrap');
+  if (!wrap) return;
+  if (!voteCandidates.length) {
+    wrap.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">ยังไม่มีรายการสินค้าใหม่ให้โหวตในขณะนี้</div>`;
+    return;
+  }
+  wrap.innerHTML = voteCandidates.map((it, idx) => {
+    const k = voteKey(it);
+    const tally = voteTotals[k] || 0;
+    const checked = !!selectedVotes[k];
+    return `<label class="vote-item-card ${checked?'checked':''}" id="voteCard_${idx}">
+      <input type="checkbox" ${checked?'checked':''} onchange="toggleVote(${idx})">
+      <div class="vote-item-body">
+        <div class="vote-item-title">${it.brand||'–'} ${it.code?'· '+it.code:''}</div>
+        <div class="vote-item-desc">${it.desc}</div>
+        <div class="vote-item-meta">
+          <span class="vote-tally">${tally} โหวตแล้ว</span>
+        </div>
+      </div>
+    </label>`;
+  }).join('');
+  updateVoteHint();
+}
+
+function toggleVote(idx) {
+  const it = voteCandidates[idx];
+  const k = voteKey(it);
+  if (selectedVotes[k]) delete selectedVotes[k];
+  else selectedVotes[k] = it;
+  document.getElementById(`voteCard_${idx}`).classList.toggle('checked', !!selectedVotes[k]);
+  updateVoteHint();
+}
+
+function updateVoteHint() {
+  const n = Object.keys(selectedVotes).length;
+  const hint = document.getElementById('voteCountHint');
+  if (hint) hint.textContent = n ? `เลือกแล้ว ${n} รายการ` : 'ยังไม่ได้เลือกรายการ';
+}
+
+function afterPage4() {
+  selectedVotes = {};
+  renderVoteItems();
+}
+
+function submitVote() {
+  const nameEl = document.getElementById('voterName');
+  const branchEl = document.getElementById('voterBranch');
+  const name = nameEl.value.trim();
+  const branch = branchEl.value.trim();
+  const selected = Object.values(selectedVotes);
+
+  if (!name || !branch) { alert('กรุณากรอกชื่อ-นามสกุล และสาขาก่อนโหวต'); return; }
+  if (!selected.length) { alert('กรุณาเลือกอย่างน้อย 1 รายการก่อนโหวต'); return; }
+  if (!WEBAPP_URL || WEBAPP_URL.indexOf('http') !== 0) {
+    alert('ยังไม่ได้ตั้งค่า WEBAPP_URL ในไฟล์ — ระบบบันทึกโหวตยังใช้งานไม่ได้'); return;
+  }
+
+  const btn = document.getElementById('voteSubmitBtn');
+  btn.disabled = true; btn.textContent = 'กำลังส่งโหวต...';
+
+  const notSelected = voteCandidates.filter(c => !selectedVotes[voteKey(c)]);
+  const nowIso = new Date().toISOString();
+
+  fetch(WEBAPP_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ name, branch, timestamp: nowIso, votes: selected }),
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (!res || res.status !== 'ok') throw new Error((res && res.message) || 'บันทึกไม่สำเร็จ');
+      showVoteModal({ name, branch, timestamp: nowIso, selected, notSelected });
+      selectedVotes = {};
+      nameEl.value = ''; branchEl.value = '';
+      return reloadVotesOnly();
+    })
+    .then(() => { renderVoteItems(); })
+    .catch(e => { alert('ส่งโหวตไม่สำเร็จ: ' + e.message); })
+    .finally(() => { btn.disabled = false; btn.textContent = 'ยืนยันโหวต'; });
+}
+
+function showVoteModal({ name, branch, timestamp, selected, notSelected }) {
+  const box = document.getElementById('voteModalBox');
+  const timeTxt = new Date(timestamp).toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' });
+  const selList = selected.map(it => `<div class="modal-list-item">✅ <span>${it.brand?it.brand+' · ':''}${it.desc}</span></div>`).join('');
+
+  box.innerHTML = `
+    <div class="modal-icon">🗳️</div>
+    <div class="modal-title">โหวตสำเร็จ</div>
+    <div class="modal-sub">บันทึกข้อมูลลงชีทเรียบร้อยแล้ว</div>
+    <div class="modal-stat-row">
+      <div class="modal-stat yes"><div class="n">${selected.length}</div><div class="lbl">รายการที่โหวต</div></div>
+      <div class="modal-stat no"><div class="n">${notSelected.length}</div><div class="lbl">รายการที่ไม่โหวต</div></div>
+    </div>
+    <div class="modal-meta">โดย <b>${name}</b> · สาขา <b>${branch}</b><br>เวลา <b>${timeTxt}</b></div>
+    <div class="modal-list-title">รายการที่โหวต</div>
+    ${selList || '<div style="font-size:13px;color:var(--muted)">–</div>'}
+    <button class="modal-close-btn" onclick="closeVoteModal()">ปิด</button>
+  `;
+  document.getElementById('voteModal').classList.add('show');
+}
+
+function closeVoteModal() {
+  document.getElementById('voteModal').classList.remove('show');
+}
+
 // ── ROUTER ──
 const pages = [
   { id:'pg0', label:'ภาพรวม', build: buildPage1, after: null },
   { id:'pg1', label:'เทียบรายละเอียด', build: buildPage2, after: renderComparePage },
   { id:'pg2', label:'ตารางทั้งหมด', build: buildPage3, after: null },
+  { id:'pg3', label:'โหวตลงร้าน', build: buildPage4, after: afterPage4 },
 ];
 
 const navTabs = document.getElementById('navTabs');
