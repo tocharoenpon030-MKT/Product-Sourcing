@@ -239,15 +239,37 @@ footer {
   border-top: 1px solid var(--border); margin-top: 28px;
 }
 
-/* ── vote page ── */
-.vote-form-bar {
-  position: sticky; top: 52px; z-index: 50;
-  background: rgba(255,255,255,0.97); backdrop-filter: blur(10px);
-  border: 1.5px solid var(--border); border-radius: var(--radius);
-  padding: 12px 14px; margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+/* ── inline vote checkbox (on compare-page cards) ── */
+.vote-check-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  padding: 8px 10px; background: rgba(224,123,30,.06);
+  border: 1.5px dashed rgba(224,123,30,.35); border-radius: 8px; cursor: pointer;
 }
-.vote-form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.vote-check-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+.vote-check-label { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+.vote-tally-mini {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  background: rgba(224,123,30,.14); padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+}
+
+/* ── floating "บันทึกโหวต" bar (compare page) ── */
+.vote-select-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: rgba(255,255,255,.98); backdrop-filter: blur(10px);
+  border-top: 2px solid var(--border); box-shadow: 0 -2px 10px rgba(0,0,0,.08);
+  padding: 10px max(14px, calc(50vw - 490px));
+}
+.vote-select-bar span { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.vote-select-btn {
+  font-family: var(--font); font-size: 14px; font-weight: 700;
+  background: var(--accent); color: #fff; border: none; border-radius: 20px;
+  padding: 9px 20px; cursor: pointer; transition: opacity .15s; white-space: nowrap;
+}
+.vote-select-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── vote confirm form (inside modal) ── */
+.vote-form-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .vote-input {
   flex: 1; min-width: 130px; font-family: var(--font); font-size: 14px;
   border: 1.5px solid var(--border); border-radius: 8px;
@@ -260,24 +282,6 @@ footer {
   padding: 11px; cursor: pointer; transition: opacity .15s;
 }
 .vote-submit-btn:disabled { opacity: .5; cursor: not-allowed; }
-.vote-count-hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; }
-
-.vote-item-card {
-  display: flex; align-items: flex-start; gap: 10px;
-  background: var(--surface); border: 1.5px solid var(--border);
-  border-radius: var(--radius); padding: 11px 13px; margin-bottom: 8px;
-  cursor: pointer; transition: border-color .15s, background .15s;
-}
-.vote-item-card.checked { border-color: var(--accent); background: rgba(224,123,30,.06); }
-.vote-item-card input[type=checkbox] { width: 19px; height: 19px; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
-.vote-item-body { flex: 1; min-width: 0; }
-.vote-item-title { font-size: 14px; font-weight: 700; color: var(--text); }
-.vote-item-desc { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
-.vote-item-meta { display: flex; gap: 10px; margin-top: 5px; flex-wrap: wrap; }
-.vote-tally {
-  font-size: 11.5px; font-weight: 700; color: var(--accent);
-  background: rgba(224,123,30,.12); padding: 2px 8px; border-radius: 20px;
-}
 
 /* ── modal ── */
 .modal-overlay {
@@ -480,10 +484,11 @@ function buildGroups(items) {
 
 let allItems = null;
 let groups = null;
-let voteCandidates = null;  // unique "ใหม่" items available to vote on
+let voteCandidates = null;  // unique "ใหม่" + "ไม่สต็อคร้าน" items available to vote on
 let voteRows = null;        // raw rows already recorded in the ผลโหวต sheet
-let voteTotals = {};        // code -> vote count
-let selectedVotes = {};     // code -> item, currently ticked on the vote page
+let voteTotals = {};        // key -> vote count
+let selectedVotes = {};     // key -> item, currently ticked (across the compare page)
+let votableMap = {};        // key -> item lookup for checkboxes on the compare page
 
 // vote sheet columns: A ประเภท1, B ประเภท2, C ยี่ห้อ, D รหัสสินค้า, E รายละเอียด,
 // F ผลโหวต (1 ต่อแถว), G โดย (ชื่อ+สาขา), H ประทับเวลา
@@ -507,11 +512,13 @@ function parseVoteSheet(csvText) {
 
 function voteKey(it) { return (it.code && it.code.trim()) ? it.code.trim() : `${it.brand}__${it.desc}`; }
 
+function isVotableType2(t) { return t === 'ใหม่' || t === 'ไม่สต็อคร้าน'; }
+
 function buildVoteCandidates(items) {
-  const map = {}; const list = [];
-  items.filter(it => it.type2 === 'ใหม่').forEach(it => {
+  const seen = {}; const list = [];
+  items.filter(it => isVotableType2(it.type2)).forEach(it => {
     const k = voteKey(it);
-    if (!map[k]) { map[k] = true; list.push(it); }
+    if (!seen[k]) { seen[k] = true; list.push(it); }
   });
   return list;
 }
@@ -537,6 +544,8 @@ function load() {
         if (!allItems.length) throw new Error('อ่านข้อมูลไม่พบรายการสินค้า');
         groups = buildGroups(allItems);
         voteCandidates = buildVoteCandidates(allItems);
+        votableMap = {};
+        voteCandidates.forEach(it => { votableMap[voteKey(it)] = it; });
         voteRows = voteCsv ? parseVoteSheet(voteCsv) : [];
         voteTotals = buildVoteTotals(voteRows);
         document.getElementById('footerEl').textContent = 'ข้อมูล ณ วันที่ 22 มิ.ย. 2569  |  หน่วย: บาท';
@@ -638,7 +647,7 @@ function buildPage1() {
   const statCards = `
     <div class="stat-card"><div class="label">จำนวนกลุ่มสินค้า</div><div class="value">${groups.length}</div><div class="sub">กลุ่ม</div></div>
     <div class="stat-card"><div class="label">จำนวนรายการทั้งหมด</div><div class="value">${totalItems}</div><div class="sub">รายการ (ขายอยู่+ใหม่+เดี่ยว)</div></div>
-    <div class="stat-card hl"><div class="label">ยอดโหวตลงร้านรวม</div><div class="value">${fmt(totalVotes,0)}</div><div class="sub">โหวต จาก ${votedCandidates}/${voteCandidates?voteCandidates.length:0} รายการ</div></div>
+    <div class="stat-card hl"><div class="label">ยอดโหวตลงร้านรวม</div><div class="value">${fmt(totalVotes,0)}</div><div class="sub">โหวต จาก ${votedCandidates}/${voteCandidates?voteCandidates.length:0} รายการที่เปิดโหวต</div></div>
   `;
 
   const voteSection = buildVoteSummarySection();
@@ -668,26 +677,37 @@ function buildPage1() {
   `;
 }
 
-// สรุปยอดโหวตลงร้าน (top รายการที่ได้คะแนนมากสุด) แสดงในหน้าภาพรวม
+// สรุปยอดโหวตลงร้าน — แสดงทุกรายการที่เปิดให้โหวต (ประเภท2 = "ใหม่" หรือ "ไม่สต็อคร้าน")
+// พร้อมจำนวนขายและคะแนนโหวต เรียงจากโหวตมากไปน้อย
 function buildVoteSummarySection() {
   if (!voteCandidates || !voteCandidates.length) return '';
   const ranked = voteCandidates
     .map(c => ({ item: c, votes: voteTotals[voteKey(c)] || 0 }))
-    .sort((a,b) => b.votes - a.votes)
-    .slice(0, 5);
-  if (!ranked.length) return '';
+    .sort((a,b) => b.votes - a.votes || (b.item.qty2568||0) - (a.item.qty2568||0));
 
-  const rows = ranked.map(r => `
-    <div class="kv-line">
-      <span class="kv-label" style="max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.item.brand?r.item.brand+' · ':''}${r.item.desc}</span>
-      <span class="kv-val" style="color:${r.votes>0?'var(--accent)':'var(--muted)'}">${r.votes} โหวต</span>
-    </div>`).join('');
+  const rows = ranked.map(r => {
+    const it = r.item;
+    const tagCls = it.type2 === 'ใหม่' ? 'new' : 'standalone';
+    return `<tr>
+      <td class="txt sticky-col">${it.type1||'–'}</td>
+      <td><span class="tag-pill ${tagCls}">${it.type2}</span></td>
+      <td class="txt">${it.brand||'–'}</td>
+      <td class="txt" style="min-width:200px">${it.desc}</td>
+      <td>${fmt(it.qty2568,0)}</td>
+      <td>${fmt(it.qty2569,0)}</td>
+      <td style="font-weight:700;color:${r.votes>0?'var(--accent)':'var(--muted)'}">${fmt(r.votes,0)}</td>
+    </tr>`;
+  }).join('');
 
   return `
-  <div class="section-title">โหวตลงร้าน (5 อันดับแรก)</div>
-  <div class="group-block">
-    ${rows}
-  </div>`;
+  <div class="section-title">โหวตลงร้าน — สินค้าที่เปิดให้โหวตทั้งหมด</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr>
+      <th class="sticky-col">ประเภท1</th><th>ประเภท2</th><th>ยี่ห้อ</th><th>รายละเอียด</th>
+      <th>จำนวนขาย 2568</th><th>จำนวนขาย 2569</th><th>คะแนนโหวต</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
 }
 
 // ── PAGE 2: เทียบรายละเอียด (cards old vs new) ──
@@ -758,6 +778,21 @@ function priceStepLine(label, sellPrice, cost, summary, diffPct, stepClass) {
   </div>`;
 }
 
+function escapeAttr(s) { return String(s==null?'':s).replace(/"/g,'&quot;'); }
+
+// ช่องติ๊กโหวต แสดงเฉพาะรายการที่โหวตได้ (ประเภท2 = "ใหม่" หรือ "ไม่สต็อคร้าน")
+function buildVoteCheckbox(it) {
+  if (!it || !isVotableType2(it.type2)) return '';
+  const k = voteKey(it);
+  const tally = voteTotals[k] || 0;
+  const checked = !!selectedVotes[k];
+  return `<label class="vote-check-row">
+    <input type="checkbox" data-key="${escapeAttr(k)}" ${checked?'checked':''} onchange="toggleVoteInline(this)">
+    <span class="vote-check-label">โหวตให้นำเข้าร้าน</span>
+    <span class="vote-tally-mini">${tally} โหวตแล้ว</span>
+  </label>`;
+}
+
 function buildCompareCard(pair, idx) {
   const old = pair.old, neu = pair.new;
   const title = (old && old.desc) || (neu && neu.desc) || `รายการที่ ${idx+1}`;
@@ -768,6 +803,7 @@ function buildCompareCard(pair, idx) {
       <div class="kv-line"><span class="kv-label">จำนวนขาย 2568</span><span class="kv-val">${fmt(it.qty2568,0)}</span></div>
       <div class="kv-line"><span class="kv-label">จำนวนขาย 2569</span><span class="kv-val">${fmt(it.qty2569,0)}</span></div>
     ` : '';
+    const voteHtml = tagClass === 'new' ? buildVoteCheckbox(it) : '';
     return `<div class="compare-col ${tagClass==='old'?'old':''}">
       <div class="compare-tag ${tagClass}">${tagLabel}</div>
       <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
@@ -779,6 +815,7 @@ function buildCompareCard(pair, idx) {
       ${priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik')}
       ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
       ${qtyLines}
+      ${voteHtml}
     </div>`;
   }
 
@@ -819,6 +856,7 @@ function buildStandaloneCard(pair, idx) {
         ${hasIv ? priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv') : ''}
         ${hasIk ? priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik') : ''}
         ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
+        ${buildVoteCheckbox(it)}
       </div>
     </div>
     <div class="verdict-bar">
@@ -837,9 +875,14 @@ function buildPage2() {
 
   return `
   <div class="page-title">เทียบรายละเอียดสินค้า</div>
-  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (รายการที่ยังไม่มีคู่เทียบจะแสดงเป็นการ์ดเดี่ยว)</div>
+  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (รายการที่ยังไม่มีคู่เทียบจะแสดงเป็นการ์ดเดี่ยว) ติ๊ก "โหวตให้นำเข้าร้าน" ที่รายการที่ต้องการ แล้วกดบันทึกโหวตด้านล่าง</div>
   <div style="margin-bottom:14px">${sel}</div>
   <div class="compare-wrap" id="compareWrap"></div>
+  <div style="height:64px"></div>
+  <div class="vote-select-bar" id="voteSelectBar">
+    <span id="voteSelectCount">ยังไม่ได้เลือกรายการโหวต</span>
+    <button class="vote-select-btn" id="voteSelectSubmitBtn" onclick="openVoteConfirm()" disabled>บันทึกโหวต</button>
+  </div>
   `;
 }
 
@@ -857,9 +900,25 @@ function renderComparePage() {
     });
   });
   wrap.innerHTML = html;
+  updateCompareSelectionBar();
 }
 
 function onFilterChange() { renderComparePage(); }
+
+function toggleVoteInline(el) {
+  const key = el.getAttribute('data-key');
+  if (el.checked) selectedVotes[key] = votableMap[key];
+  else delete selectedVotes[key];
+  updateCompareSelectionBar();
+}
+
+function updateCompareSelectionBar() {
+  const n = Object.keys(selectedVotes).length;
+  const countEl = document.getElementById('voteSelectCount');
+  const btn = document.getElementById('voteSelectSubmitBtn');
+  if (countEl) countEl.textContent = n ? `เลือกไว้ ${n} รายการ` : 'ยังไม่ได้เลือกรายการโหวต';
+  if (btn) btn.disabled = n === 0;
+}
 
 // ── PAGE 3: ตารางรวม ──
 function buildPage3() {
@@ -917,86 +976,45 @@ function buildPage3() {
   `;
 }
 
-// ── PAGE 4: โหวตลงร้าน ──
-function buildPage4() {
-  if (!voteCandidates) return '';
-  return `
-  <div class="page-title">โหวตลงร้าน</div>
-  <div class="page-sub">ติ๊กเลือกสินค้าใหม่ที่อยากให้นำเข้าร้าน ใส่ชื่อและสาขาแล้วกดยืนยัน โหวตได้หลายรายการในครั้งเดียว</div>
+// ── การยืนยันโหวต (เลือกจากหน้าเทียบรายละเอียด แล้วกด "บันทึกโหวต") ──
+function openVoteConfirm() {
+  const selected = Object.values(selectedVotes).filter(Boolean);
+  if (!selected.length) { alert('กรุณาติ๊กเลือกอย่างน้อย 1 รายการก่อนบันทึกโหวต'); return; }
 
-  <div class="vote-form-bar">
-    <div class="vote-form-row">
-      <input type="text" class="vote-input" id="voterName" placeholder="ชื่อ-นามสกุล">
-      <input type="text" class="vote-input" id="voterBranch" placeholder="สาขา">
+  const box = document.getElementById('voteModalBox');
+  const listHtml = selected.map(it => `<div class="modal-list-item">☑️ <span>${it.brand?it.brand+' · ':''}${it.desc}</span></div>`).join('');
+
+  box.innerHTML = `
+    <div class="modal-icon">🗳️</div>
+    <div class="modal-title">ยืนยันการโหวต</div>
+    <div class="modal-sub">เลือกไว้ ${selected.length} รายการ — กรอกชื่อและสาขาเพื่อบันทึกลงชีท</div>
+    <div class="vote-form-row" style="margin-bottom:10px">
+      <input type="text" class="vote-input" id="confirmVoterName" placeholder="ชื่อ-นามสกุล">
+      <input type="text" class="vote-input" id="confirmVoterBranch" placeholder="สาขา">
     </div>
-    <button class="vote-submit-btn" id="voteSubmitBtn" onclick="submitVote()">ยืนยันโหวต</button>
-    <div class="vote-count-hint" id="voteCountHint">ยังไม่ได้เลือกรายการ</div>
-  </div>
-
-  <div id="voteItemsWrap"></div>
+    <div class="modal-list-title">รายการที่เลือก</div>
+    ${listHtml}
+    <button class="vote-submit-btn" id="confirmVoteBtn" onclick="submitVoteBatch()" style="margin-top:12px">ยืนยันบันทึกโหวต</button>
+    <button class="modal-close-btn" onclick="closeVoteModal()">ยกเลิก</button>
   `;
+  document.getElementById('voteModal').classList.add('show');
 }
 
-function renderVoteItems() {
-  const wrap = document.getElementById('voteItemsWrap');
-  if (!wrap) return;
-  if (!voteCandidates.length) {
-    wrap.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:20px 0;text-align:center">ยังไม่มีรายการสินค้าใหม่ให้โหวตในขณะนี้</div>`;
-    return;
-  }
-  wrap.innerHTML = voteCandidates.map((it, idx) => {
-    const k = voteKey(it);
-    const tally = voteTotals[k] || 0;
-    const checked = !!selectedVotes[k];
-    return `<label class="vote-item-card ${checked?'checked':''}" id="voteCard_${idx}">
-      <input type="checkbox" ${checked?'checked':''} onchange="toggleVote(${idx})">
-      <div class="vote-item-body">
-        <div class="vote-item-title">${it.brand||'–'} ${it.code?'· '+it.code:''}</div>
-        <div class="vote-item-desc">${it.desc}</div>
-        <div class="vote-item-meta">
-          <span class="vote-tally">${tally} โหวตแล้ว</span>
-        </div>
-      </div>
-    </label>`;
-  }).join('');
-  updateVoteHint();
-}
-
-function toggleVote(idx) {
-  const it = voteCandidates[idx];
-  const k = voteKey(it);
-  if (selectedVotes[k]) delete selectedVotes[k];
-  else selectedVotes[k] = it;
-  document.getElementById(`voteCard_${idx}`).classList.toggle('checked', !!selectedVotes[k]);
-  updateVoteHint();
-}
-
-function updateVoteHint() {
-  const n = Object.keys(selectedVotes).length;
-  const hint = document.getElementById('voteCountHint');
-  if (hint) hint.textContent = n ? `เลือกแล้ว ${n} รายการ` : 'ยังไม่ได้เลือกรายการ';
-}
-
-function afterPage4() {
-  selectedVotes = {};
-  renderVoteItems();
-}
-
-function submitVote() {
-  const nameEl = document.getElementById('voterName');
-  const branchEl = document.getElementById('voterBranch');
+function submitVoteBatch() {
+  const nameEl = document.getElementById('confirmVoterName');
+  const branchEl = document.getElementById('confirmVoterBranch');
   const name = nameEl.value.trim();
   const branch = branchEl.value.trim();
-  const selected = Object.values(selectedVotes);
+  const selected = Object.values(selectedVotes).filter(Boolean);
 
-  if (!name || !branch) { alert('กรุณากรอกชื่อ-นามสกุล และสาขาก่อนโหวต'); return; }
-  if (!selected.length) { alert('กรุณาเลือกอย่างน้อย 1 รายการก่อนโหวต'); return; }
+  if (!name || !branch) { alert('กรุณากรอกชื่อ-นามสกุล และสาขาก่อนบันทึกโหวต'); return; }
+  if (!selected.length) { alert('ยังไม่ได้เลือกรายการ'); return; }
   if (!WEBAPP_URL || WEBAPP_URL.indexOf('http') !== 0) {
     alert('ยังไม่ได้ตั้งค่า WEBAPP_URL ในไฟล์ — ระบบบันทึกโหวตยังใช้งานไม่ได้'); return;
   }
 
-  const btn = document.getElementById('voteSubmitBtn');
-  btn.disabled = true; btn.textContent = 'กำลังส่งโหวต...';
+  const btn = document.getElementById('confirmVoteBtn');
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
 
   const notSelected = voteCandidates.filter(c => !selectedVotes[voteKey(c)]);
   const nowIso = new Date().toISOString();
@@ -1009,14 +1027,16 @@ function submitVote() {
     .then(r => r.json())
     .then(res => {
       if (!res || res.status !== 'ok') throw new Error((res && res.message) || 'บันทึกไม่สำเร็จ');
-      showVoteModal({ name, branch, timestamp: nowIso, selected, notSelected });
       selectedVotes = {};
-      nameEl.value = ''; branchEl.value = '';
-      return reloadVotesOnly();
+      return reloadVotesOnly().then(() => {
+        showVoteModal({ name, branch, timestamp: nowIso, selected, notSelected });
+        renderComparePage();
+      });
     })
-    .then(() => { renderVoteItems(); })
-    .catch(e => { alert('ส่งโหวตไม่สำเร็จ: ' + e.message); })
-    .finally(() => { btn.disabled = false; btn.textContent = 'ยืนยันโหวต'; });
+    .catch(e => {
+      alert('บันทึกโหวตไม่สำเร็จ: ' + e.message);
+      btn.disabled = false; btn.textContent = 'ยืนยันบันทึกโหวต';
+    });
 }
 
 function showVoteModal({ name, branch, timestamp, selected, notSelected }) {
@@ -1049,7 +1069,6 @@ const pages = [
   { id:'pg0', label:'ภาพรวม', build: buildPage1, after: null },
   { id:'pg1', label:'เทียบรายละเอียด', build: buildPage2, after: renderComparePage },
   { id:'pg2', label:'ตารางทั้งหมด', build: buildPage3, after: null },
-  { id:'pg3', label:'โหวตลงร้าน', build: buildPage4, after: afterPage4 },
 ];
 
 const navTabs = document.getElementById('navTabs');
