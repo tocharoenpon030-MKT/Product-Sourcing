@@ -276,6 +276,13 @@ footer {
   padding: 8px 10px; color: var(--text); background: var(--surface);
 }
 .vote-input:focus { outline: none; border-color: var(--accent); }
+.vote-comment-box {
+  width: 100%; min-height: 70px; resize: vertical;
+  font-family: var(--font); font-size: 14px; color: var(--text);
+  border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 9px 10px; background: var(--surface);
+}
+.vote-comment-box:focus { outline: none; border-color: var(--accent); }
 .vote-submit-btn {
   width: 100%; font-family: var(--font); font-size: 15px; font-weight: 700;
   background: var(--accent); color: #fff; border: none; border-radius: 8px;
@@ -381,7 +388,7 @@ const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?forma
 const VOTE_GID = '2030973518';
 const VOTE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VOTE_GID}`;
 // วาง URL ของ Google Apps Script Web App ที่ deploy แล้วตรงนี้ (ดูวิธีติดตั้งจากที่แชท)
-const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzFJvv1ltnQNcEqe_3qtIuknF2vLd66UzwzHOabtEJYK0FMRIu5n8l8ip_8bHOebEKU/exec';
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbz8FsN4vNQbf5oJcMuSlDnxPGkhnV1lxWKzUjlemFz-IZP-xY3jk-QeONa3PuRYkVvY/exec';
 
 const SHEET_EDIT_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${GID}#gid=${GID}`;
 const SHEET_ACCESS_CODE = '1294';
@@ -518,6 +525,8 @@ let voteRows = null;        // raw rows already recorded in the ผลโหว�
 let voteTotals = {};        // key -> vote count
 let selectedVotes = {};     // key -> item, currently ticked (across the compare page)
 let votableMap = {};        // key -> item lookup for checkboxes on the compare page
+let voteNoneSelected = false; // true when the voter explicitly picks "ไม่เลือกลงร้านเลย"
+let voteComment = '';         // free-text ข้อเสนอแนะ/ความคิดเห็นเพิ่มเติม, saved to sheet column I
 
 // vote sheet columns: A ประเภท1, B ประเภท2, C ยี่ห้อ, D รหัสสินค้า, E รายละเอียด,
 // F ผลโหวต (1 ต่อแถว), G โดย (ชื่อ+สาขา), H ประทับเวลา
@@ -723,6 +732,14 @@ function buildPageVote() {
   <div class="page-title">โหวตสินค้าลงร้าน</div>
   <div class="page-sub">รายการสินค้าทั้งหมดที่เปิดให้โหวต (เรียงตามลำดับในกูเกิ้ลชีท) — ติ๊กช่องด้านหน้าเพื่อเลือกรายการที่จะนำเข้าร้าน แล้วกดบันทึกโหวตด้านล่าง</div>
   <div style="margin-bottom:14px">${sel}</div>
+  <label class="vote-check-row" style="margin-bottom:14px">
+    <input type="checkbox" id="voteNoneChk" ${voteNoneSelected?'checked':''} onchange="toggleVoteNone(this)">
+    <span class="vote-check-label">ไม่เลือกลงร้านเลยในรอบนี้</span>
+  </label>
+  <div style="margin-bottom:14px">
+    <div class="modal-list-title" style="margin:0 0 6px">ข้อเสนอแนะ / ความคิดเห็นเพิ่มเติม</div>
+    <textarea id="voteCommentBox" class="vote-comment-box" placeholder="พิมพ์ข้อเสนอแนะหรือความคิดเห็นเพิ่มเติม (ถ้ามี)" oninput="voteComment=this.value">${escapeHtml(voteComment)}</textarea>
+  </div>
   <div class="tbl-wrap" id="voteTblWrap"></div>
   <div style="height:64px"></div>
   <div class="vote-select-bar" id="voteSelectBar">
@@ -747,7 +764,7 @@ function renderVotePage() {
     const checked = !!selectedVotes[k];
     const tagCls = it.type2 === 'ใหม่' ? 'new' : 'standalone';
     return `<tr>
-      <td class="chk-col"><input type="checkbox" data-key="${escapeAttr(k)}" ${checked?'checked':''} onchange="toggleVoteInline(this)"></td>
+      <td class="chk-col"><input type="checkbox" data-key="${escapeAttr(k)}" ${checked?'checked':''} ${voteNoneSelected?'disabled':''} onchange="toggleVoteInline(this)"></td>
       <td class="txt">${it.type1||'–'}</td>
       <td><span class="tag-pill ${tagCls}">${it.type2}</span></td>
       <td class="txt">${it.brand||'–'}</td>
@@ -840,6 +857,7 @@ function priceStepLine(label, sellPrice, cost, summary, diffPct, stepClass) {
 }
 
 function escapeAttr(s) { return String(s==null?'':s).replace(/"/g,'&quot;'); }
+function escapeHtml(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function buildCompareCard(pair, idx) {
   const old = pair.old, neu = pair.new;
@@ -951,12 +969,27 @@ function toggleVoteInline(el) {
   updateCompareSelectionBar();
 }
 
+function toggleVoteNone(el) {
+  voteNoneSelected = el.checked;
+  if (voteNoneSelected) {
+    selectedVotes = {};
+    renderVotePage(); // clears/disables item checkboxes in the table
+  } else {
+    renderVotePage(); // re-enable item checkboxes
+  }
+  updateCompareSelectionBar();
+}
+
 function updateCompareSelectionBar() {
   const n = Object.keys(selectedVotes).length;
   const countEl = document.getElementById('voteSelectCount');
   const btn = document.getElementById('voteSelectSubmitBtn');
-  if (countEl) countEl.textContent = n ? `เลือกไว้ ${n} รายการ` : 'ยังไม่ได้เลือกรายการโหวต';
-  if (btn) btn.disabled = n === 0;
+  if (countEl) {
+    countEl.textContent = voteNoneSelected
+      ? 'เลือก "ไม่ลงร้านเลย"'
+      : (n ? `เลือกไว้ ${n} รายการ` : 'ยังไม่ได้เลือกรายการโหวต');
+  }
+  if (btn) btn.disabled = !(n > 0 || voteNoneSelected);
 }
 
 // ── PAGE 3: ตารางรวม ──
@@ -1018,21 +1051,32 @@ function buildPage3() {
 // ── การยืนยันโหวต (เลือกจากหน้าเทียบรายละเอียด แล้วกด "บันทึกโหวต") ──
 function openVoteConfirm() {
   const selected = Object.values(selectedVotes).filter(Boolean);
-  if (!selected.length) { alert('กรุณาติ๊กเลือกอย่างน้อย 1 รายการก่อนบันทึกโหวต'); return; }
+  if (!selected.length && !voteNoneSelected) { alert('กรุณาติ๊กเลือกอย่างน้อย 1 รายการ หรือติ๊ก "ไม่เลือกลงร้านเลย" ก่อนบันทึกโหวต'); return; }
 
   const box = document.getElementById('voteModalBox');
-  const listHtml = selected.map(it => `<div class="modal-list-item">☑️ <span>${it.brand?it.brand+' · ':''}${it.desc}</span></div>`).join('');
+  const commentBoxEl = document.getElementById('voteCommentBox');
+  if (commentBoxEl) voteComment = commentBoxEl.value;
+  const commentVal = voteComment.trim();
+
+  const listHtml = voteNoneSelected
+    ? `<div class="modal-list-item">🚫 <span>ไม่เลือกลงร้านเลยในรอบนี้</span></div>`
+    : selected.map(it => `<div class="modal-list-item">☑️ <span>${it.brand?it.brand+' · ':''}${it.desc}</span></div>`).join('');
+
+  const subTxt = voteNoneSelected
+    ? 'เลือก "ไม่ลงร้านเลย" — กรอกชื่อและสาขาเพื่อบันทึกลงชีท'
+    : `เลือกไว้ ${selected.length} รายการ — กรอกชื่อและสาขาเพื่อบันทึกลงชีท`;
 
   box.innerHTML = `
     <div class="modal-icon">🗳️</div>
     <div class="modal-title">ยืนยันการโหวต</div>
-    <div class="modal-sub">เลือกไว้ ${selected.length} รายการ — กรอกชื่อและสาขาเพื่อบันทึกลงชีท</div>
+    <div class="modal-sub">${subTxt}</div>
     <div class="vote-form-row" style="margin-bottom:10px">
       <input type="text" class="vote-input" id="confirmVoterName" placeholder="ชื่อ-นามสกุล">
       <input type="text" class="vote-input" id="confirmVoterBranch" placeholder="สาขา">
     </div>
     <div class="modal-list-title">รายการที่เลือก</div>
     ${listHtml}
+    ${commentVal ? `<div class="modal-list-title" style="margin-top:12px">ข้อเสนอแนะ/ความคิดเห็น</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap">${escapeHtml(commentVal)}</div>` : ''}
     <button class="vote-submit-btn" id="confirmVoteBtn" onclick="submitVoteBatch()" style="margin-top:12px">ยืนยันบันทึกโหวต</button>
     <button class="modal-close-btn" onclick="closeVoteModal()">ยกเลิก</button>
   `;
@@ -1045,9 +1089,11 @@ function submitVoteBatch() {
   const name = nameEl.value.trim();
   const branch = branchEl.value.trim();
   const selected = Object.values(selectedVotes).filter(Boolean);
+  const comment = voteComment.trim();
+  const wasNone = voteNoneSelected;
 
   if (!name || !branch) { alert('กรุณากรอกชื่อ-นามสกุล และสาขาก่อนบันทึกโหวต'); return; }
-  if (!selected.length) { alert('ยังไม่ได้เลือกรายการ'); return; }
+  if (!selected.length && !wasNone) { alert('ยังไม่ได้เลือกรายการ'); return; }
   if (!WEBAPP_URL || WEBAPP_URL.indexOf('http') !== 0) {
     alert('ยังไม่ได้ตั้งค่า WEBAPP_URL ในไฟล์ — ระบบบันทึกโหวตยังใช้งานไม่ได้'); return;
   }
@@ -1058,18 +1104,22 @@ function submitVoteBatch() {
   const notSelected = voteCandidates.filter(c => !selectedVotes[voteKey(c)]);
   const nowIso = new Date().toISOString();
 
+  // comment (ข้อเสนอแนะ/ความคิดเห็น) ถูกส่งไปด้วยเสมอ ให้ Apps Script เขียนลงชีท "ผลโหวต" คอลัมน์ I
   fetch(WEBAPP_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ name, branch, timestamp: nowIso, votes: selected }),
+    body: JSON.stringify({ name, branch, timestamp: nowIso, votes: selected, noneSelected: wasNone, comment }),
   })
     .then(r => r.json())
     .then(res => {
       if (!res || res.status !== 'ok') throw new Error((res && res.message) || 'บันทึกไม่สำเร็จ');
       selectedVotes = {};
+      voteNoneSelected = false;
+      voteComment = '';
       return reloadVotesOnly().then(() => {
-        showVoteModal({ name, branch, timestamp: nowIso, selected, notSelected });
-        renderVotePage();
+        showVoteModal({ name, branch, timestamp: nowIso, selected, notSelected, noneSelected: wasNone, comment });
+        const voteIdx = pages.findIndex(p => p.id === 'pg2');
+        if (voteIdx !== -1) renderPage(voteIdx); // rebuild page: resets none-checkbox + comment box in DOM
       });
     })
     .catch(e => {
@@ -1078,22 +1128,25 @@ function submitVoteBatch() {
     });
 }
 
-function showVoteModal({ name, branch, timestamp, selected, notSelected }) {
+function showVoteModal({ name, branch, timestamp, selected, notSelected, noneSelected, comment }) {
   const box = document.getElementById('voteModalBox');
   const timeTxt = new Date(timestamp).toLocaleString('th-TH', { dateStyle:'medium', timeStyle:'short' });
-  const selList = selected.map(it => `<div class="modal-list-item">✅ <span>${it.brand?it.brand+' · ':''}${it.desc}</span></div>`).join('');
+  const selList = noneSelected
+    ? `<div class="modal-list-item">🚫 <span>ไม่เลือกลงร้านเลยในรอบนี้</span></div>`
+    : (selected.map(it => `<div class="modal-list-item">✅ <span>${it.brand?it.brand+' · ':''}${it.desc}</span></div>`).join('') || '<div style="font-size:13px;color:var(--muted)">–</div>');
 
   box.innerHTML = `
     <div class="modal-icon">🗳️</div>
     <div class="modal-title">โหวตสำเร็จ</div>
     <div class="modal-sub">บันทึกข้อมูลลงชีทเรียบร้อยแล้ว</div>
     <div class="modal-stat-row">
-      <div class="modal-stat yes"><div class="n">${selected.length}</div><div class="lbl">รายการที่โหวต</div></div>
-      <div class="modal-stat no"><div class="n">${notSelected.length}</div><div class="lbl">รายการที่ไม่โหวต</div></div>
+      <div class="modal-stat yes"><div class="n">${noneSelected ? 0 : selected.length}</div><div class="lbl">รายการที่โหวต</div></div>
+      <div class="modal-stat no"><div class="n">${noneSelected ? voteCandidates.length : notSelected.length}</div><div class="lbl">รายการที่ไม่โหวต</div></div>
     </div>
     <div class="modal-meta">โดย <b>${name}</b> · สาขา <b>${branch}</b><br>เวลา <b>${timeTxt}</b></div>
     <div class="modal-list-title">รายการที่โหวต</div>
-    ${selList || '<div style="font-size:13px;color:var(--muted)">–</div>'}
+    ${selList}
+    ${comment ? `<div class="modal-list-title" style="margin-top:10px">ข้อเสนอแนะ/ความคิดเห็น</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap">${escapeHtml(comment)}</div>` : ''}
     <button class="modal-close-btn" onclick="closeVoteModal()">ปิด</button>
   `;
   document.getElementById('voteModal').classList.add('show');
