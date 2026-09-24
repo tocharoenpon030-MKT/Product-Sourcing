@@ -179,6 +179,12 @@ main { padding: 16px; max-width: 980px; margin: 0 auto; }
 .price-step-sub { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 12px; color: var(--muted); }
 .price-step-sub b { font-family: var(--mono); color: var(--text); }
 
+/* ── year-over-year qty/profit stat block (used on the "เทียบรายละเอียด" cards) ── */
+.yearstat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 12px; }
+.yearstat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
+.yearstat-box .vs-qty { text-align: left; }
+.yearstat-box .vs-profit { justify-content: flex-start; }
+
 /* ── tbl ── */
 .tbl-wrap {
   background: var(--surface);
@@ -399,6 +405,12 @@ const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?forma
 // ── voting sheet ("ผลโหวต" tab) ──
 const VOTE_GID = '2030973518';
 const VOTE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VOTE_GID}`;
+
+// ── history sheet ("เก็บประวัติ" tab) — used by the "เทียบรายละเอียด" page ──
+// fetched by sheet NAME (gviz endpoint) instead of gid, since we don't have its gid on hand.
+const HISTORY_SHEET_NAME = 'เก็บประวัติ';
+const HISTORY_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(HISTORY_SHEET_NAME)}`;
+
 // วาง URL ของ Google Apps Script Web App ที่ deploy แล้วตรงนี้ (ดูวิธีติดตั้งจากที่แชท)
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbz8FsN4vNQbf5oJcMuSlDnxPGkhnV1lxWKzUjlemFz-IZP-xY3jk-QeONa3PuRYkVvY/exec';
 
@@ -495,6 +507,62 @@ function parseSheet(csvText) {
   return items;
 }
 
+// ── parse the "เก็บประวัติ" (history) sheet ──
+// NOTE: this sheet's columns are laid out slightly differently from the main
+// "สรุป" sheet used everywhere else: it has NO "กำไรเฉพาะรหัส ปี2569" (total profit
+// for 2569) column of its own — column I here is "จำนวนขาย 2569" directly (in the
+// main sheet, that same slot is taken by the 2569-profit column, pushing qty2569 one
+// column to the right). Because of that, itemProfit2569 is not real sheet data here;
+// it's estimated as (average profit/unit across the 3 price steps) × qty2569, so it
+// can be treated as an approximation rather than an exact figure from the sheet.
+function parseHistorySheet(csvText) {
+  const lines = csvText.replace(/\r/g,'').split('\n').filter(l => l.trim().length>0);
+  const rows = lines.map(parseCSVLine);
+  const items = [];
+  for (let i = 2; i < rows.length; i++) {
+    const r = rows[i];
+    const type1 = (r[0]||'').trim();
+    if (!type1) continue;
+    const item = {
+      type1,
+      type2: (r[1]||'').trim(),
+      brand: (r[2]||'').trim(),
+      code: (r[3]||'').trim(),
+      desc: (r[4]||'').trim(),
+      groupProfit: numClean(r[5]),
+      itemProfit: numClean(r[6]),          // กำไรเฉพาะรหัส ปี 2568
+      qty2568: numClean(r[7]),
+      qty2569: numClean(r[8]),
+      cost: numClean(r[9]),
+      purchasePrice: numClean(r[10]),
+      purchaseProfitPct: numClean(r[11]),
+      purchaseProfitPerUnit: numClean(r[12]),
+      purchaseCompetitorPrice: numClean(r[13]),
+      purchaseDiff: numClean(r[14]),
+      purchaseSummary: (r[15]||'').trim(),
+      ivSellPrice: numClean(r[16]),
+      ivProfitPct: numClean(r[17]),
+      ivProfitPerUnit: numClean(r[18]),
+      ivCompetitorPrice: numClean(r[19]),
+      ivDiff: numClean(r[20]),
+      ivSummary: (r[21]||'').trim(),
+      ikSellPrice: numClean(r[22]),
+      ikProfitPct: numClean(r[23]),
+      ikProfitPerUnit: numClean(r[24]),
+      ikCompetitorPrice: numClean(r[25]),
+      ikDiff: numClean(r[26]),
+      ikSummary: (r[27]||'').trim(),
+      website: (r[28]||'').trim(),
+    };
+    // estimate: itemProfit2569 ≈ average profit/unit (purchase, IV, IK) × qty2569
+    const pu = avgProfitPerUnit(item);
+    item.itemProfit2569 = (pu !== null && item.qty2569 !== null) ? pu * item.qty2569 : null;
+    item.itemProfit2569Estimated = true;
+    items.push(item);
+  }
+  return items;
+}
+
 // ── group items into pairs (old "ขายอยู่" + new "ใหม่") under each ประเภท1 ──
 // Rows whose ประเภท2 is neither "ขายอยู่" nor "ใหม่" (e.g. "ไม่สต็อคร้าน") have no
 // counterpart to compare against — they're kept as standalone reference items so
@@ -543,6 +611,8 @@ function buildGroups(items) {
 
 let allItems = null;
 let groups = null;
+let historyItems = null;   // rows from "เก็บประวัติ" tab
+let historyGroups = null;  // grouped/paired version of historyItems — used by "เทียบรายละเอียด"
 let voteCandidates = null;  // unique "ใหม่" + "ไม่สต็อคร้าน" items available to vote on
 let voteRows = null;        // raw rows already recorded in the ผลโหวต sheet
 let voteTotals = {};        // key -> vote count
@@ -598,8 +668,9 @@ function load() {
   Promise.all([
     fetch(CSV_URL).then(r => { if(!r.ok) throw new Error('HTTP '+r.status+' (ชีทข้อมูลราคา)'); return r.text(); }),
     fetch(VOTE_CSV_URL).then(r => { if(!r.ok) throw new Error('HTTP '+r.status+' (ชีทโหวต)'); return r.text(); }).catch(()=>''),
+    fetch(HISTORY_CSV_URL).then(r => { if(!r.ok) throw new Error('HTTP '+r.status+' (ชีทเก็บประวัติ)'); return r.text(); }).catch(()=>''),
   ])
-    .then(([csv, voteCsv]) => {
+    .then(([csv, voteCsv, historyCsv]) => {
       try {
         allItems = parseSheet(csv);
         if (!allItems.length) throw new Error('อ่านข้อมูลไม่พบรายการสินค้า');
@@ -609,6 +680,10 @@ function load() {
         voteCandidates.forEach(it => { votableMap[voteKey(it)] = it; });
         voteRows = voteCsv ? parseVoteSheet(voteCsv) : [];
         voteTotals = buildVoteTotals(voteRows);
+
+        historyItems = historyCsv ? parseHistorySheet(historyCsv) : [];
+        historyGroups = historyItems.length ? buildGroups(historyItems) : [];
+
         document.getElementById('footerEl').textContent = 'ข้อมูล ณ วันที่ 22 มิ.ย. 2569  |  หน่วย: บาท';
         renderAll();
       } catch(e) {
@@ -891,6 +966,22 @@ function priceStepLine(label, sellPrice, cost, summary, diffPct, stepClass) {
   </div>`;
 }
 
+// ปี 2568 vs 2569 — จำนวนขาย + กำไร/หน่วย + กำไรรวม แสดงคู่กันแบบเดียวกับหน้าโหวต
+function buildYearStatBlock(it) {
+  return `<div class="yearstat-grid">
+    <div class="yearstat-box">
+      <div class="year-hdr th-2568">จำนวนขาย 2568</div>
+      <div class="year-hdr-sub th-2568">กำไร/หน่วย · กำไรรวม</div>
+      ${voteStatCell(it.qty2568, it.itemProfit, 'th-2568')}
+    </div>
+    <div class="yearstat-box">
+      <div class="year-hdr th-2569">จำนวนขาย 2569</div>
+      <div class="year-hdr-sub th-2569">กำไร/หน่วย · กำไรรวม${it.itemProfit2569Estimated ? ' (ประมาณการ)' : ''}</div>
+      ${voteStatCell(it.qty2569, it.itemProfit2569, 'th-2569')}
+    </div>
+  </div>`;
+}
+
 function escapeAttr(s) { return String(s==null?'':s).replace(/"/g,'&quot;'); }
 function escapeHtml(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -900,21 +991,17 @@ function buildCompareCard(pair, idx) {
 
   function colHtml(it, tagClass, tagLabel) {
     if (!it) return `<div class="compare-col"><div class="compare-tag ${tagClass}">${tagLabel}</div><div style="color:var(--muted);font-size:13px">ไม่มีข้อมูล</div></div>`;
-    const qtyLines = tagClass === 'old' ? `
-      <div class="kv-line"><span class="kv-label">จำนวนขาย 2568</span><span class="kv-val">${fmt(it.qty2568,0)}</span></div>
-      <div class="kv-line"><span class="kv-label">จำนวนขาย 2569</span><span class="kv-val">${fmt(it.qty2569,0)}</span></div>
-    ` : '';
     return `<div class="compare-col ${tagClass==='old'?'old':''}">
       <div class="compare-tag ${tagClass}">${tagLabel}</div>
       <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
       <div class="compare-desc">${it.desc}</div>
+      ${buildYearStatBlock(it)}
       <div class="kv-line"><span class="kv-label">ต้นทุน</span><span class="kv-val">${fmtMoney(it.cost)}</span></div>
       <div class="kv-line"><span class="kv-label">ราคาตลาด (คู่แข่ง)</span><span class="kv-val">${fmtMoney(it.purchaseCompetitorPrice)}</span></div>
       ${priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseSummary, it.purchaseDiff, 'step-purchase')}
       ${priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv')}
       ${priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik')}
       ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
-      ${qtyLines}
     </div>`;
   }
 
@@ -947,10 +1034,8 @@ function buildStandaloneCard(pair, idx) {
         <div class="compare-tag standalone">${it.type2 || 'ไม่มีคู่เทียบ'}</div>
         <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
         <div class="compare-desc">${it.desc}</div>
+        ${buildYearStatBlock(it)}
         <div class="kv-line"><span class="kv-label">ต้นทุน</span><span class="kv-val">${fmtMoney(it.cost)}</span></div>
-        <div class="kv-line"><span class="kv-label">กำไรเฉพาะรหัส (ปี 2568)</span><span class="kv-val">${fmtMoney(it.itemProfit,2)}</span></div>
-        <div class="kv-line"><span class="kv-label">จำนวนขาย 2568</span><span class="kv-val">${fmt(it.qty2568,0)}</span></div>
-        <div class="kv-line"><span class="kv-label">จำนวนขาย 2569</span><span class="kv-val">${fmt(it.qty2569,0)}</span></div>
         ${hasPurchase ? priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseSummary, it.purchaseDiff, 'step-purchase') : ''}
         ${hasIv ? priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv') : ''}
         ${hasIk ? priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik') : ''}
@@ -965,15 +1050,22 @@ function buildStandaloneCard(pair, idx) {
 }
 
 function buildPage2() {
-  if (!groups) return '';
-  const filterOptions = groups.map(g=>`<option value="${g.name}">${g.name}</option>`).join('');
+  if (!historyGroups) return '';
+  if (!historyGroups.length) {
+    return `
+    <div class="page-title">เทียบรายละเอียดสินค้า</div>
+    <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ข้อมูลจากแท็บ "เก็บประวัติ"</div>
+    <div class="note" style="margin-top:8px">⚠ ไม่พบข้อมูลจากแท็บ "เก็บประวัติ" ใน Google Sheets (ชื่อแท็บอาจไม่ตรง หรือไม่มีสิทธิ์เข้าถึง)</div>
+    `;
+  }
+  const filterOptions = historyGroups.map(g=>`<option value="${g.name}">${g.name}</option>`).join('');
   const sel = `<select class="filter-select" id="grpFilter" onchange="onFilterChange()">
     <option value="__all__">ทุกกลุ่ม</option>${filterOptions}
   </select>`;
 
   return `
   <div class="page-title">เทียบรายละเอียดสินค้า</div>
-  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (รายการที่ยังไม่มีคู่เทียบจะแสดงเป็นการ์ดเดี่ยว)</div>
+  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (ข้อมูลจากแท็บ "เก็บประวัติ" — รายการที่ยังไม่มีคู่เทียบจะแสดงเป็นการ์ดเดี่ยว)</div>
   <div style="margin-bottom:14px">${sel}</div>
   <div class="compare-wrap" id="compareWrap"></div>
   `;
@@ -983,9 +1075,9 @@ function renderComparePage() {
   const sel = document.getElementById('grpFilter');
   const val = sel ? sel.value : '__all__';
   const wrap = document.getElementById('compareWrap');
-  if (!wrap) return;
+  if (!wrap || !historyGroups) return;
   let html = '';
-  groups.forEach(g => {
+  historyGroups.forEach(g => {
     if (val !== '__all__' && g.name !== val) return;
     html += `<div class="section-title">${g.name}</div>`;
     g.pairs.forEach((p,i) => {
