@@ -523,10 +523,22 @@ function parseHistorySheet(csvText) {
   const lines = csvText.replace(/\r/g,'').split('\n').filter(l => l.trim().length>0);
   const rows = lines.map(parseCSVLine);
   const items = [];
-  for (let i = 2; i < rows.length; i++) {
+  let lastType1 = ''; // carries forward across merged/blank ประเภท1 cells
+  // NOTE: this sheet has only ONE header row (unlike the main "สรุป" sheet, which has
+  // two) — so data starts right after row 1, at index 1, not index 2.
+  for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
-    const type1 = (r[1]||'').trim();
+    const rawType1 = (r[1]||'').trim();
+    const desc = (r[5]||'').trim();
+    if (!rawType1 && !desc) continue; // fully empty row — skip
+    // ประเภท1 can be a merged cell spanning several rows in the sheet; on export,
+    // only the first row of the merge keeps the text and the rest come through blank.
+    // Fill blanks forward from the last row that had a value instead of dropping
+    // the row (dropping it here was why paired rows with a blank ประเภท1 were
+    // silently disappearing instead of being compared).
+    const type1 = rawType1 || lastType1;
     if (!type1) continue;
+    lastType1 = type1;
     const mkRaw = (r[0]||'').trim();
     const mkNum = numClean(mkRaw);
     const matchKey = mkNum !== null ? String(mkNum) : (mkRaw || null);
@@ -536,7 +548,7 @@ function parseHistorySheet(csvText) {
       type2: (r[2]||'').trim(),
       brand: (r[3]||'').trim(),
       code: (r[4]||'').trim(),
-      desc: (r[5]||'').trim(),
+      desc,
       groupProfit: numClean(r[6]),
       itemProfit: numClean(r[7]),          // กำไรเฉพาะรหัส ปี 2568
       qty2568: numClean(r[8]),
