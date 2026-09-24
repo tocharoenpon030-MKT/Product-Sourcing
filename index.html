@@ -508,51 +508,59 @@ function parseSheet(csvText) {
 }
 
 // ── parse the "เก็บประวัติ" (history) sheet ──
-// NOTE: this sheet's columns are laid out slightly differently from the main
-// "สรุป" sheet used everywhere else: it has NO "กำไรเฉพาะรหัส ปี2569" (total profit
-// for 2569) column of its own — column I here is "จำนวนขาย 2569" directly (in the
-// main sheet, that same slot is taken by the 2569-profit column, pushing qty2569 one
-// column to the right). Because of that, itemProfit2569 is not real sheet data here;
-// it's estimated as (average profit/unit across the 3 price steps) × qty2569, so it
-// can be treated as an approximation rather than an exact figure from the sheet.
+// Column A is now "เลขจับคู่เทียบสินค้า" (a match number): rows sharing the same
+// number are the pair/group to compare (replacing the old "ขายอยู่ then ใหม่ in
+// adjacent rows" assumption). Every other field shifts one column to the right
+// because of this new column A. A blank match number means the row has no
+// counterpart and is shown as a standalone card, same as before.
+//
+// This sheet also has NO "กำไรเฉพาะรหัส ปี2569" (total profit for 2569) column of
+// its own — unlike the main "สรุป" sheet. Because of that, itemProfit2569 is not
+// real sheet data here; it's estimated as (average profit/unit across the 3 price
+// steps) × qty2569, so it should be treated as an approximation, not an exact
+// figure from the sheet.
 function parseHistorySheet(csvText) {
   const lines = csvText.replace(/\r/g,'').split('\n').filter(l => l.trim().length>0);
   const rows = lines.map(parseCSVLine);
   const items = [];
   for (let i = 2; i < rows.length; i++) {
     const r = rows[i];
-    const type1 = (r[0]||'').trim();
+    const type1 = (r[1]||'').trim();
     if (!type1) continue;
+    const mkRaw = (r[0]||'').trim();
+    const mkNum = numClean(mkRaw);
+    const matchKey = mkNum !== null ? String(mkNum) : (mkRaw || null);
     const item = {
+      matchKey,
       type1,
-      type2: (r[1]||'').trim(),
-      brand: (r[2]||'').trim(),
-      code: (r[3]||'').trim(),
-      desc: (r[4]||'').trim(),
-      groupProfit: numClean(r[5]),
-      itemProfit: numClean(r[6]),          // กำไรเฉพาะรหัส ปี 2568
-      qty2568: numClean(r[7]),
-      qty2569: numClean(r[8]),
-      cost: numClean(r[9]),
-      purchasePrice: numClean(r[10]),
-      purchaseProfitPct: numClean(r[11]),
-      purchaseProfitPerUnit: numClean(r[12]),
-      purchaseCompetitorPrice: numClean(r[13]),
-      purchaseDiff: numClean(r[14]),
-      purchaseSummary: (r[15]||'').trim(),
-      ivSellPrice: numClean(r[16]),
-      ivProfitPct: numClean(r[17]),
-      ivProfitPerUnit: numClean(r[18]),
-      ivCompetitorPrice: numClean(r[19]),
-      ivDiff: numClean(r[20]),
-      ivSummary: (r[21]||'').trim(),
-      ikSellPrice: numClean(r[22]),
-      ikProfitPct: numClean(r[23]),
-      ikProfitPerUnit: numClean(r[24]),
-      ikCompetitorPrice: numClean(r[25]),
-      ikDiff: numClean(r[26]),
-      ikSummary: (r[27]||'').trim(),
-      website: (r[28]||'').trim(),
+      type2: (r[2]||'').trim(),
+      brand: (r[3]||'').trim(),
+      code: (r[4]||'').trim(),
+      desc: (r[5]||'').trim(),
+      groupProfit: numClean(r[6]),
+      itemProfit: numClean(r[7]),          // กำไรเฉพาะรหัส ปี 2568
+      qty2568: numClean(r[8]),
+      qty2569: numClean(r[9]),
+      cost: numClean(r[10]),
+      purchasePrice: numClean(r[11]),
+      purchaseProfitPct: numClean(r[12]),
+      purchaseProfitPerUnit: numClean(r[13]),
+      purchaseCompetitorPrice: numClean(r[14]),
+      purchaseDiff: numClean(r[15]),
+      purchaseSummary: (r[16]||'').trim(),
+      ivSellPrice: numClean(r[17]),
+      ivProfitPct: numClean(r[18]),
+      ivProfitPerUnit: numClean(r[19]),
+      ivCompetitorPrice: numClean(r[20]),
+      ivDiff: numClean(r[21]),
+      ivSummary: (r[22]||'').trim(),
+      ikSellPrice: numClean(r[23]),
+      ikProfitPct: numClean(r[24]),
+      ikProfitPerUnit: numClean(r[25]),
+      ikCompetitorPrice: numClean(r[26]),
+      ikDiff: numClean(r[27]),
+      ikSummary: (r[28]||'').trim(),
+      website: (r[29]||'').trim(),
     };
     // estimate: itemProfit2569 ≈ average profit/unit (purchase, IV, IK) × qty2569
     const pu = avgProfitPerUnit(item);
@@ -561,6 +569,61 @@ function parseHistorySheet(csvText) {
     items.push(item);
   }
   return items;
+}
+
+// ── group + pair items from the "เก็บประวัติ" sheet using the "เลขจับคู่" match number ──
+// Rows are still bucketed under their ประเภท1 (for the group filter dropdown / section
+// headers), but within each ประเภท1 bucket, pairing now follows the match number
+// instead of "ขายอยู่ then ใหม่" adjacency:
+//   - rows that share a match number: the "ขายอยู่" row is compared against EVERY
+//     "ใหม่" row with that same number, producing one card per old/new combination.
+//   - rows with no match number (blank): kept as standalone cards, same as before.
+function buildHistoryGroups(items) {
+  const order = [];
+  const map = {};
+  items.forEach(it => {
+    if (!map[it.type1]) { map[it.type1] = { name: it.type1, groupProfit: null, pairs: [] }; order.push(it.type1); }
+    const g = map[it.type1];
+    if (g.groupProfit === null && it.groupProfit !== null) g.groupProfit = it.groupProfit;
+  });
+
+  order.forEach(name => {
+    const g = map[name];
+    const groupItems = items.filter(it => it.type1 === name);
+    const matchOrder = [];
+    const matchBuckets = {};
+    const standalones = [];
+
+    groupItems.forEach(it => {
+      const key = it.matchKey;
+      if (!key) { standalones.push(it); return; }
+      if (!matchBuckets[key]) { matchBuckets[key] = { old: null, news: [] }; matchOrder.push(key); }
+      const b = matchBuckets[key];
+      if (it.type2 === 'ขายอยู่') {
+        if (!b.old) b.old = it; else b.news.push(it); // extra "ขายอยู่" rows fall back to being treated like another item to compare
+      } else if (it.type2 === 'ใหม่') {
+        b.news.push(it);
+      } else {
+        // matched row that isn't tagged "ขายอยู่"/"ใหม่" — no clear side to pair, show alone
+        standalones.push(it);
+      }
+    });
+
+    matchOrder.forEach(key => {
+      const b = matchBuckets[key];
+      if (b.old && b.news.length) {
+        b.news.forEach(n => g.pairs.push({ old: b.old, new: n }));
+      } else if (b.old) {
+        g.pairs.push({ old: b.old, new: null });
+      } else {
+        b.news.forEach(n => g.pairs.push({ old: null, new: n }));
+      }
+    });
+
+    standalones.forEach(it => g.pairs.push({ standalone: it }));
+  });
+
+  return order.map(name => map[name]);
 }
 
 // ── group items into pairs (old "ขายอยู่" + new "ใหม่") under each ประเภท1 ──
@@ -682,7 +745,7 @@ function load() {
         voteTotals = buildVoteTotals(voteRows);
 
         historyItems = historyCsv ? parseHistorySheet(historyCsv) : [];
-        historyGroups = historyItems.length ? buildGroups(historyItems) : [];
+        historyGroups = historyItems.length ? buildHistoryGroups(historyItems) : [];
 
         document.getElementById('footerEl').textContent = 'ข้อมูล ณ วันที่ 22 มิ.ย. 2569  |  หน่วย: บาท';
         renderAll();
