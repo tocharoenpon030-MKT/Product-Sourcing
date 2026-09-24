@@ -149,7 +149,7 @@ main { padding: 16px; max-width: 980px; margin: 0 auto; }
 .compare-row { display: grid; grid-template-columns: 1fr 1fr; }
 .compare-row-single { grid-template-columns: 1fr; }
 .compare-col { padding: 12px 14px; }
-.compare-col.old { border-right: 1.5px solid var(--border); }
+.compare-row > .compare-col:not(:last-child) { border-right: 1.5px solid var(--border); }
 .compare-tag {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 11px; font-weight: 700; letter-spacing: .5px;
@@ -372,8 +372,8 @@ select.filter-select {
   .tab-btn { font-size: 13px; padding: 5px 9px; }
   main { padding: 10px; }
   .page-title { font-size: 19px; }
-  .compare-row { grid-template-columns: 1fr; }
-  .compare-col.old { border-right: none; border-bottom: 1.5px solid var(--border); }
+  .compare-row { grid-template-columns: 1fr !important; }
+  .compare-row > .compare-col:not(:last-child) { border-right: none; border-bottom: 1.5px solid var(--border); }
   .pie-row { flex-direction: column; align-items: stretch; }
 }
 </style>
@@ -573,11 +573,11 @@ function parseHistorySheet(csvText) {
 
 // ── group + pair items from the "เก็บประวัติ" sheet using the "เลขจับคู่" match number ──
 // Rows are still bucketed under their ประเภท1 (for the group filter dropdown / section
-// headers), but within each ประเภท1 bucket, pairing now follows the match number
-// instead of "ขายอยู่ then ใหม่" adjacency:
-//   - rows that share a match number: the "ขายอยู่" row is compared against EVERY
-//     "ใหม่" row with that same number, producing one card per old/new combination.
-//   - rows with no match number (blank): kept as standalone cards, same as before.
+// headers). Within each ประเภท1 bucket, pairing is now PURELY by the match number in
+// column A — it has nothing to do with ประเภท2 ("ขายอยู่"/"ใหม่"/etc): every row that
+// shares the same number goes into one comparison card together (2, 3, or more rows),
+// each shown in its own column labeled with its own ประเภท2. Rows with no match number
+// (blank) are shown as their own single-column card, same as before.
 function buildHistoryGroups(items) {
   const order = [];
   const map = {};
@@ -590,37 +590,23 @@ function buildHistoryGroups(items) {
   order.forEach(name => {
     const g = map[name];
     const groupItems = items.filter(it => it.type1 === name);
-    const matchOrder = [];
+
+    // first pass: bucket every row that has a match number, regardless of ประเภท2
     const matchBuckets = {};
-    const standalones = [];
-
     groupItems.forEach(it => {
-      const key = it.matchKey;
-      if (!key) { standalones.push(it); return; }
-      if (!matchBuckets[key]) { matchBuckets[key] = { old: null, news: [] }; matchOrder.push(key); }
-      const b = matchBuckets[key];
-      if (it.type2 === 'ขายอยู่') {
-        if (!b.old) b.old = it; else b.news.push(it); // extra "ขายอยู่" rows fall back to being treated like another item to compare
-      } else if (it.type2 === 'ใหม่') {
-        b.news.push(it);
-      } else {
-        // matched row that isn't tagged "ขายอยู่"/"ใหม่" — no clear side to pair, show alone
-        standalones.push(it);
-      }
+      if (!it.matchKey) return;
+      (matchBuckets[it.matchKey] = matchBuckets[it.matchKey] || []).push(it);
     });
 
-    matchOrder.forEach(key => {
-      const b = matchBuckets[key];
-      if (b.old && b.news.length) {
-        b.news.forEach(n => g.pairs.push({ old: b.old, new: n }));
-      } else if (b.old) {
-        g.pairs.push({ old: b.old, new: null });
-      } else {
-        b.news.forEach(n => g.pairs.push({ old: null, new: n }));
-      }
+    // second pass: walk rows in original sheet order, emitting each matched group
+    // exactly once (at the position of its first row) and each unmatched row on its own
+    const addedKeys = new Set();
+    groupItems.forEach(it => {
+      if (!it.matchKey) { g.pairs.push({ items: [it] }); return; }
+      if (addedKeys.has(it.matchKey)) return;
+      addedKeys.add(it.matchKey);
+      g.pairs.push({ items: matchBuckets[it.matchKey] });
     });
-
-    standalones.forEach(it => g.pairs.push({ standalone: it }));
   });
 
   return order.map(name => map[name]);
@@ -1048,67 +1034,62 @@ function buildYearStatBlock(it) {
 function escapeAttr(s) { return String(s==null?'':s).replace(/"/g,'&quot;'); }
 function escapeHtml(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function buildCompareCard(pair, idx) {
-  const old = pair.old, neu = pair.new;
-  const title = (old && old.desc) || (neu && neu.desc) || `รายการที่ ${idx+1}`;
+// tag styling only reflects the item's own ประเภท2 value — it does not decide
+// pairing. "ขายอยู่" gets the old-style pill, "ใหม่" gets the new-style pill,
+// anything else (e.g. "ไม่สต็อคร้าน") gets the neutral/standalone pill.
+function type2TagClass(type2) {
+  if (type2 === 'ขายอยู่') return 'old';
+  if (type2 === 'ใหม่') return 'new';
+  return 'standalone';
+}
 
-  function colHtml(it, tagClass, tagLabel) {
-    if (!it) return `<div class="compare-col"><div class="compare-tag ${tagClass}">${tagLabel}</div><div style="color:var(--muted);font-size:13px">ไม่มีข้อมูล</div></div>`;
-    return `<div class="compare-col ${tagClass==='old'?'old':''}">
-      <div class="compare-tag ${tagClass}">${tagLabel}</div>
-      <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
-      <div class="compare-desc">${it.desc}</div>
-      ${buildYearStatBlock(it)}
-      <div class="kv-line"><span class="kv-label">ต้นทุน</span><span class="kv-val">${fmtMoney(it.cost)}</span></div>
-      <div class="kv-line"><span class="kv-label">ราคาตลาด (คู่แข่ง)</span><span class="kv-val">${fmtMoney(it.purchaseCompetitorPrice)}</span></div>
-      ${priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseSummary, it.purchaseDiff, 'step-purchase')}
-      ${priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv')}
-      ${priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik')}
-      ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
-    </div>`;
-  }
-
-  const verdict = buildVerdict(old, neu);
-
-  return `<div class="compare-card">
-    <div class="compare-card-head">${title}</div>
-    <div class="compare-row">
-      ${colHtml(old,'old','ขายอยู่')}
-      ${colHtml(neu,'new','สินค้าใหม่')}
-    </div>
-    ${verdict || ''}
+function compareColHtml(it) {
+  return `<div class="compare-col">
+    <div class="compare-tag ${type2TagClass(it.type2)}">${it.type2 || 'ไม่ระบุ'}</div>
+    <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
+    <div class="compare-desc">${it.desc}</div>
+    ${buildYearStatBlock(it)}
+    <div class="kv-line"><span class="kv-label">ต้นทุน</span><span class="kv-val">${fmtMoney(it.cost)}</span></div>
+    <div class="kv-line"><span class="kv-label">ราคาตลาด (คู่แข่ง)</span><span class="kv-val">${fmtMoney(it.purchaseCompetitorPrice)}</span></div>
+    ${priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseSummary, it.purchaseDiff, 'step-purchase')}
+    ${priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv')}
+    ${priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik')}
+    ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
   </div>`;
 }
 
-// standalone item = a row whose ประเภท2 is neither "ขายอยู่" nor "ใหม่" (e.g. "ไม่สต็อคร้าน")
-// so there's no pair to build a two-column comparison from. Shown as a single-column
-// reference card instead of being dropped.
-function buildStandaloneCard(pair, idx) {
-  const it = pair.standalone;
-  const title = it.desc || `รายการที่ ${idx+1}`;
-  const hasPurchase = it.purchasePrice !== null && it.purchasePrice !== undefined;
-  const hasIv = it.ivSellPrice !== null && it.ivSellPrice !== undefined;
-  const hasIk = it.ikSellPrice !== null && it.ikSellPrice !== undefined;
+// one card per match-number group (or per unmatched row). Renders one column per
+// item — 1, 2, 3 or more, however many rows share the same "เลขจับคู่". A verdict
+// badge is only computed for the classic 2-item "ขายอยู่ vs ใหม่" case; anything
+// else gets a plain info badge instead.
+function buildMatchCard(items, idx) {
+  const title = (items.find(it => it.desc) || {}).desc || `รายการที่ ${idx+1}`;
+  const cols = items.map(compareColHtml).join('');
+  const rowStyle = items.length === 1 ? '' : ` style="grid-template-columns: repeat(${items.length}, 1fr)"`;
+  const rowCls = items.length === 1 ? ' compare-row-single' : '';
+
+  let footer;
+  if (items.length === 2) {
+    const old = items.find(it => it.type2 === 'ขายอยู่');
+    const neu = items.find(it => it.type2 === 'ใหม่');
+    footer = (old && neu) ? buildVerdict(old, neu) : null;
+  } else {
+    footer = null;
+  }
+  if (!footer) {
+    const infoMsg = items.length === 1
+      ? 'ไม่มีรายการอื่นที่เลขจับคู่ (คอลัมน์ A) ตรงกัน'
+      : `มี ${items.length} รายการที่เลขจับคู่ (คอลัมน์ A) ตรงกัน`;
+    footer = `<div class="verdict-bar">
+      <span class="verdict-badge info">ℹ️ ${items.length === 1 ? 'รายการเดี่ยว' : 'กลุ่มเปรียบเทียบ'}</span>
+      <div class="verdict-detail"><span>${infoMsg}</span></div>
+    </div>`;
+  }
 
   return `<div class="compare-card">
     <div class="compare-card-head">${title}</div>
-    <div class="compare-row compare-row-single">
-      <div class="compare-col">
-        <div class="compare-tag standalone">${it.type2 || 'ไม่มีคู่เทียบ'}</div>
-        <div class="compare-brand">${it.brand || '–'} ${it.code? '· '+it.code : ''}</div>
-        <div class="compare-desc">${it.desc}</div>
-        ${buildYearStatBlock(it)}
-        <div class="kv-line"><span class="kv-label">ต้นทุน</span><span class="kv-val">${fmtMoney(it.cost)}</span></div>
-        ${hasPurchase ? priceStepLine('ราคาจัดซื้อ', it.purchasePrice, it.cost, it.purchaseSummary, it.purchaseDiff, 'step-purchase') : ''}
-        ${hasIv ? priceStepLine('ราคา IV รับเอง', it.ivSellPrice, it.cost, it.ivSummary, it.ivDiff, 'step-iv') : ''}
-        ${hasIk ? priceStepLine('ราคา IK-IV ส่งให้', it.ikSellPrice, it.cost, it.ikSummary, it.ikDiff, 'step-ik') : ''}
-        ${it.website ? `<div class="kv-line"><span class="kv-label">เว็บไซต์อ้างอิง</span><span class="kv-val" style="font-family:var(--font);font-weight:400">${it.website}</span></div>` : ''}
-      </div>
-    </div>
-    <div class="verdict-bar">
-      <span class="verdict-badge info">ℹ️ รายการเดี่ยว</span>
-      <div class="verdict-detail"><span>ยังไม่มีสินค้า "ใหม่" ให้เทียบสำหรับรายการนี้</span></div>
-    </div>
+    <div class="compare-row${rowCls}"${rowStyle}>${cols}</div>
+    ${footer}
   </div>`;
 }
 
@@ -1117,7 +1098,7 @@ function buildPage2() {
   if (!historyGroups.length) {
     return `
     <div class="page-title">เทียบรายละเอียดสินค้า</div>
-    <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ข้อมูลจากแท็บ "เก็บประวัติ"</div>
+    <div class="page-sub">เปรียบเทียบรายการที่เลขจับคู่ (คอลัมน์ A) ตรงกัน — ข้อมูลจากแท็บ "เก็บประวัติ"</div>
     <div class="note" style="margin-top:8px">⚠ ไม่พบข้อมูลจากแท็บ "เก็บประวัติ" ใน Google Sheets (ชื่อแท็บอาจไม่ตรง หรือไม่มีสิทธิ์เข้าถึง)</div>
     `;
   }
@@ -1128,7 +1109,7 @@ function buildPage2() {
 
   return `
   <div class="page-title">เทียบรายละเอียดสินค้า</div>
-  <div class="page-sub">เปรียบเทียบ "ขายอยู่" กับ "สินค้าใหม่" ทีละคู่ — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (ข้อมูลจากแท็บ "เก็บประวัติ" — รายการที่ยังไม่มีคู่เทียบจะแสดงเป็นการ์ดเดี่ยว)</div>
+  <div class="page-sub">เปรียบเทียบรายการที่มีเลขจับคู่ (คอลัมน์ A) ตรงกัน — ราคา ต้นทุน กำไร และเทียบราคาคู่แข่ง (ข้อมูลจากแท็บ "เก็บประวัติ" — รายการที่ไม่มีเลขจับคู่จะแสดงเป็นการ์ดเดี่ยว)</div>
   <div style="margin-bottom:14px">${sel}</div>
   <div class="compare-wrap" id="compareWrap"></div>
   `;
@@ -1143,9 +1124,7 @@ function renderComparePage() {
   historyGroups.forEach(g => {
     if (val !== '__all__' && g.name !== val) return;
     html += `<div class="section-title">${g.name}</div>`;
-    g.pairs.forEach((p,i) => {
-      html += p.standalone ? buildStandaloneCard(p,i) : buildCompareCard(p,i);
-    });
+    g.pairs.forEach((p,i) => { html += buildMatchCard(p.items, i); });
   });
   wrap.innerHTML = html;
 }
